@@ -1,0 +1,112 @@
+{
+  "name": "SD Loop - 1. Discovery",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }]
+        }
+      },
+      "id": "trigger-daily-6am",
+      "name": "Daily 6am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-640, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/sources",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }]
+        },
+        "options": {}
+      },
+      "id": "http-get-sources",
+      "name": "Get Active Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-420, 0]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "sources",
+        "options": {}
+      },
+      "id": "split-sources",
+      "name": "Split Out Sources",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.feedUrl }}",
+        "options": {}
+      },
+      "id": "rss-read",
+      "name": "Read RSS Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [20, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Keep only items published in roughly the last day (the daily cron window),\n// and normalize field names to match POST /api/pipeline/discovered-items.\n// sourceId is pulled from the paired 'Split Out Sources' item, not from the\n// RSS item itself (RSS entries don't know which of our sources produced them).\nconst pubDate = $json.isoDate || $json.pubDate;\nconst publishedAt = pubDate ? new Date(pubDate) : null;\nconst cutoff = Date.now() - 26 * 60 * 60 * 1000; // 26h window covers daily-cron drift\n\nif (publishedAt && publishedAt.getTime() < cutoff) {\n  return { json: { skip: true } };\n}\n\nconst source = $('Split Out Sources').item.json;\n\nreturn {\n  json: {\n    sourceId: source.id,\n    title: $json.title,\n    link: $json.link,\n    publishedDate: publishedAt ? publishedAt.toISOString() : null,\n    rawSnippet: ($json.contentSnippet || $json.content || '').slice(0, 500),\n  },\n};"
+      },
+      "id": "code-normalize",
+      "name": "Normalize + Filter Recent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            { "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-not-skipped",
+      "name": "Not Skipped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [460, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/discovered-items",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "http-post-discovered",
+      "name": "POST Discovered Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, -100]
+    }
+  ],
+  "connections": {
+    "Daily 6am": { "main": [[{ "node": "Get Active Sources", "type": "main", "index": 0 }]] },
+    "Get Active Sources": { "main": [[{ "node": "Split Out Sources", "type": "main", "index": 0 }]] },
+    "Split Out Sources": { "main": [[{ "node": "Read RSS Feed", "type": "main", "index": 0 }]] },
+    "Read RSS Feed": { "main": [[{ "node": "Normalize + Filter Recent", "type": "main", "index": 0 }]] },
+    "Normalize + Filter Recent": { "main": [[{ "node": "Not Skipped?", "type": "main", "index": 0 }]] },
+    "Not Skipped?": { "main": [[{ "node": "POST Discovered Item", "type": "main", "index": 0 }], []] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,0 +1,18 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
+      # Read by the workflows in ./workflows via {{ $env.* }} expressions.
+      - APP_BASE_URL=${APP_BASE_URL:?set to the Next.js app's URL, e.g. your Tailscale MagicDNS name}
+      - PIPELINE_TOKEN=${PIPELINE_TOKEN:?must match PIPELINE_TOKEN in the app's .env}
+      - NOTIFY_TOKEN=${NOTIFY_TOKEN:?must match NOTIFY_TOKEN in the app's .env}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?used by the Classification/Refresh workflows' LLM step}
+    volumes:
+      - ./data:/home/node/.n8n

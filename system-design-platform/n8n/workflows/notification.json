@@ -1,0 +1,39 @@
+{
+  "name": "SD Loop - 3. Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] }
+      },
+      "id": "trigger-daily-8am",
+      "name": "Daily 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/push/notify",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.NOTIFY_TOKEN }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'System Design Loop', body: \"Today's topic is ready.\", url: '/' }) }}",
+        "options": {}
+      },
+      "id": "http-notify",
+      "name": "Push 'Today's topic is ready'",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [20, 0]
+    }
+  ],
+  "connections": {
+    "Daily 8am": { "main": [[{ "node": "Push 'Today's topic is ready'", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

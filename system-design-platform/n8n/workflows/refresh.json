@@ -1,0 +1,179 @@
+{
+  "name": "SD Loop - 4. Weekly Refresh",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 5 * * 0" }] }
+      },
+      "id": "trigger-weekly-sun-5am",
+      "name": "Weekly Sunday 5am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1200, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/taxonomy",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "options": {}
+      },
+      "id": "http-get-taxonomy",
+      "name": "Get Taxonomy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-960, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/sources",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "options": {}
+      },
+      "id": "http-get-sources",
+      "name": "Get Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-720, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/discovered-items?status=low-confidence,pending",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "options": {}
+      },
+      "id": "http-get-unresolved",
+      "name": "Get Unresolved Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 0],
+      "notes": "PRD Section 10, step 5: weekly pass over anything Discovery/Classification couldn't confidently tag the first time. Same items can be retried more than once -- 'low-confidence' isn't a terminal state."
+    },
+    { "parameters": { "fieldToSplitOut": "items", "options": {} }, "id": "split-items", "name": "Split Out Items", "type": "n8n-nodes-base.splitOut", "typeVersion": 1, "position": [-240, 0] },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'claude-sonnet-4-5',\n  max_tokens: 500,\n  system: 'You extract structured facts only. Never write explanatory prose, summaries, or opinions. Given a blog post title/snippet and a fixed taxonomy of topic ids, return ONLY a single JSON object (no markdown fences, no commentary) matching: {\\\"topicIds\\\": string[], \\\"confidence\\\": number (0-1), \\\"sourceType\\\": \\\"company-official\\\"|\\\"named-practitioner\\\"|\\\"technical-newsletter\\\", \\\"extractedFacts\\\": {\\\"company\\\": string, \\\"scaleNumbers\\\": string[], \\\"techNamed\\\": string[], \\\"facts\\\": string[]}}. This is a retry of an item Classification could not confidently tag -- look harder at partial signals before giving up again.',\n  messages: [{\n    role: 'user',\n    content: 'Taxonomy: ' + JSON.stringify($('Get Taxonomy').first().json.topics) + '\\n\\nPost title: ' + $json.title + '\\nSnippet: ' + ($json.rawSnippet || '') + '\\nURL: ' + $json.link\n  }]\n}) }}",
+        "options": {}
+      },
+      "id": "http-classify-llm",
+      "name": "Reclassify (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $('Split Out Items').item.json;\nconst sources = $('Get Sources').first().json.sources;\nconst source = sources.find((s) => s.id === item.sourceId);\n\nlet parsed;\ntry {\n  const text = $json.content?.[0]?.text ?? '{}';\n  parsed = JSON.parse(text);\n} catch (e) {\n  parsed = { topicIds: [], confidence: 0 };\n}\n\nconst confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0;\nconst classified = confidence >= 0.6 && Array.isArray(parsed.topicIds) && parsed.topicIds.length > 0;\n\nreturn {\n  json: {\n    itemId: item.id,\n    status: classified ? 'classified' : 'low-confidence',\n    record: classified\n      ? {\n          id: item.id,\n          topicIds: parsed.topicIds,\n          title: item.title,\n          sourceName: source ? source.name : 'Unknown',\n          sourceType: parsed.sourceType || (source ? source.sourceType : 'technical-newsletter'),\n          sourceUrl: item.link,\n          extractedFacts: parsed.extractedFacts || { company: '', scaleNumbers: [], techNamed: [], facts: [] },\n          publishedDate: item.publishedDate,\n        }\n      : null,\n  },\n};"
+      },
+      "id": "code-parse-route",
+      "name": "Parse + Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            { "leftValue": "={{ $json.status }}", "rightValue": "classified", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-classified",
+      "name": "Classified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/real-world-examples",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.record) }}",
+        "options": {}
+      },
+      "id": "http-post-example",
+      "name": "POST Real-World Example",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, -100]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/discovered-items/{{ $json.itemId }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ classificationStatus: $json.status }) }}",
+        "options": {}
+      },
+      "id": "http-patch-status-classified",
+      "name": "Mark Classified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, -100]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.APP_BASE_URL }}/api/pipeline/discovered-items/{{ $json.itemId }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.PIPELINE_TOKEN }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ classificationStatus: 'low-confidence' }) }}",
+        "options": {}
+      },
+      "id": "http-patch-status-lowconf",
+      "name": "Still Low-Confidence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 100]
+    }
+  ],
+  "connections": {
+    "Weekly Sunday 5am": { "main": [[{ "node": "Get Taxonomy", "type": "main", "index": 0 }]] },
+    "Get Taxonomy": { "main": [[{ "node": "Get Sources", "type": "main", "index": 0 }]] },
+    "Get Sources": { "main": [[{ "node": "Get Unresolved Items", "type": "main", "index": 0 }]] },
+    "Get Unresolved Items": { "main": [[{ "node": "Split Out Items", "type": "main", "index": 0 }]] },
+    "Split Out Items": { "main": [[{ "node": "Reclassify (LLM)", "type": "main", "index": 0 }]] },
+    "Reclassify (LLM)": { "main": [[{ "node": "Parse + Route", "type": "main", "index": 0 }]] },
+    "Parse + Route": { "main": [[{ "node": "Classified?", "type": "main", "index": 0 }]] },
+    "Classified?": {
+      "main": [
+        [{ "node": "POST Real-World Example", "type": "main", "index": 0 }],
+        [{ "node": "Still Low-Confidence", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST Real-World Example": { "main": [[{ "node": "Mark Classified", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
