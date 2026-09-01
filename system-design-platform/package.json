@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:push": "drizzle-kit push",
+    "db:push": "mkdir -p data && drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "rm -f data/app.db data/app.db-wal data/app.db-shm && npm run db:push && npm run db:seed",
     "pipeline:import-opml": "tsx scripts/import-opml.ts"
