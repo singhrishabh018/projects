@@ -1,0 +1,221 @@
+
+diff --git a/price-sync/README.md b/price-sync/README.md
+index 28b4d78..b342d1c 100644
+--- a/price-sync/README.md
++++ b/price-sync/README.md
+@@ -5,3 +5,26 @@ Only brands that are eligible for the website are sent; the eligible list comes
+ nightly warehouse export `eligible_brands.csv` (see `warehouse-sql/procs/eligible_brands.sql`).
+ 
+ Run tests: `python -m unittest discover -s tests`
++
++## Admin endpoints
++
++Served on `ADMIN_PORT` (8081), fronted by the `price-sync-admin` Service.
++
++- `GET /healthz`
++- `POST /admin/reload-eligible-brands` — re-read `eligible_brands.csv` without a restart.
++  Responds `{"status": "ok", "previous_count": N, "count": M}`.
++
++Two things to know before using the reload to push through an eligibility change:
++
++1. **It re-reads the file, it does not regenerate it.** `eligible_brands.csv` is only
++   rewritten by the nightly `warehouse-brand-exports` job at 02:00 UTC
++   (`deploy-config/jobs/schedules.yaml`). A change made in the warehouse `brand` table
++   during the day is not in the file yet, so reloading will re-read the same list.
++   `export_eligible_brands()` has to be run first; only then does the reload pick it up.
++2. **It reloads one pod.** Prod runs 4 replicas and the admin Service load-balances
++   across them, so one call hits one pod and the other three keep the old list. Call it
++   until the `count` is the new value on every replica, or address each pod directly.
++
++A reload that fails (export missing, unreadable, malformed, or empty) returns 500 and
++leaves the pod running on the list it already had, rather than dropping to an empty list
++and silently skipping every price.
+diff --git a/price-sync/price_sync/admin.py b/price-sync/price_sync/admin.py
+index 4a65bb5..e4e6cee 100644
+--- a/price-sync/price_sync/admin.py
++++ b/price-sync/price_sync/admin.py
+@@ -1,21 +1,49 @@
+ """Tiny admin HTTP server (health check). Exposed through the service's load balancer."""
+ import http.server
+ import json
++import logging
+ 
+-from . import config
++from . import config, eligibility
++
++log = logging.getLogger(__name__)
+ 
+ 
+ def healthz():
+     return 200, {"status": "ok"}
+ 
+ 
+-ROUTES = {("GET", "/healthz"): healthz}
++def reload_eligible_brands():
++    """Re-read the eligible-brands export without restarting the process.
++
++    Only this pod is reloaded -- see the runbook, prod runs several replicas.
++    """
++    try:
++        old_count, new_count = eligibility.reload()
++    except (OSError, KeyError, ValueError) as exc:
++        log.warning("eligible brands reload failed: %s", exc)
++        return 500, {"status": "error", "error": str(exc),
++                     "path": config.ELIGIBLE_BRANDS_CSV}
++    return 200, {"status": "ok", "path": config.ELIGIBLE_BRANDS_CSV,
++                 "previous_count": old_count, "count": new_count}
++
++
++ROUTES = {
++    ("GET", "/healthz"): healthz,
++    ("POST", "/admin/reload-eligible-brands"): reload_eligible_brands,
++}
+ 
+ 
+ class Handler(http.server.BaseHTTPRequestHandler):
+     def _dispatch(self, method):
+         route = ROUTES.get((method, self.path))
+-        status, body = route() if route else (404, {"error": "not found"})
++        if route:
++            try:
++                status, body = route()
++            except Exception:
++                log.exception("admin route %s %s failed", method, self.path)
++                status, body = 500, {"error": "internal error"}
++        else:
++            status, body = 404, {"error": "not found"}
+         self.send_response(status)
+         self.send_header("Content-Type", "application/json")
+         self.end_headers()
+diff --git a/price-sync/price_sync/eligibility.py b/price-sync/price_sync/eligibility.py
+index 61b5c02..0d87f5f 100644
+--- a/price-sync/price_sync/eligibility.py
++++ b/price-sync/price_sync/eligibility.py
+@@ -1,21 +1,48 @@
+ """Which brands may be sent to the partner: the warehouse's eligible_brands export.
+ 
+-Loaded once when the process starts. The export is regenerated nightly by the warehouse.
++Loaded on first use, and re-read on demand via the admin reload endpoint. The export
++itself is regenerated nightly by the warehouse.
+ """
+ import csv
++import logging
+ 
+ from . import config
+ 
++log = logging.getLogger(__name__)
++
+ _eligible = None
+ 
+ 
++def _read(path):
++    with open(path, newline="") as f:
++        return {row["brand_id"] for row in csv.DictReader(f)}
++
++
+ def load(path=None):
+     global _eligible
+-    with open(path or config.ELIGIBLE_BRANDS_CSV, newline="") as f:
+-        _eligible = {row["brand_id"] for row in csv.DictReader(f)}
++    _eligible = _read(path or config.ELIGIBLE_BRANDS_CSV)
+     return _eligible
+ 
+ 
++def reload(path=None):
++    """Re-read the export and swap it in. Returns (old_count, new_count).
++
++    The new list is only swapped in once it has been read successfully, so a missing or
++    unreadable export leaves the process running on the list it already had. An export
++    with no brands is refused for the same reason: it is far more likely to be a
++    truncated or half-written file than a genuine "sell nothing online" decision, and
++    accepting it would silently stop every price going to the partner.
++    """
++    global _eligible
++    new = _read(path or config.ELIGIBLE_BRANDS_CSV)
++    if not new:
++        raise ValueError("eligible brands export is empty, keeping the current list")
++    old_count = len(_eligible) if _eligible is not None else 0
++    _eligible = new
++    log.info("reloaded eligible brands: %d -> %d", old_count, len(new))
++    return old_count, len(new)
++
++
+ def is_eligible(brand_id):
+     if _eligible is None:
+         load()
+diff --git a/price-sync/tests/test_admin.py b/price-sync/tests/test_admin.py
+new file mode 100644
+index 0000000..3c5f7e7
+--- /dev/null
++++ b/price-sync/tests/test_admin.py
+@@ -0,0 +1,68 @@
++import os
++import tempfile
++import unittest
++
++from price_sync import admin, config, consumer, eligibility
++
++
++class ReloadTest(unittest.TestCase):
++    def setUp(self):
++        self.path = os.path.join(tempfile.mkdtemp(), "eligible_brands.csv")
++        self.write("brand_id\nb1\n")
++        self._saved = config.ELIGIBLE_BRANDS_CSV
++        config.ELIGIBLE_BRANDS_CSV = self.path
++        eligibility.load(self.path)
++
++    def tearDown(self):
++        config.ELIGIBLE_BRANDS_CSV = self._saved
++
++    def write(self, text):
++        with open(self.path, "w") as f:
++            f.write(text)
++
++    def handle(self, event):
++        sent = []
++        consumer.handle(event, send=sent.append)
++        return sent
++
++    def price(self, brand):
++        return {"sku": "S1", "brand": brand, "price": "9.99", "currency": "EUR"}
++
++    def test_reload_picks_up_a_newly_eligible_brand(self):
++        self.assertEqual(self.handle(self.price("b2")), [])
++        self.write("brand_id\nb1\nb2\n")
++        status, body = admin.reload_eligible_brands()
++        self.assertEqual(status, 200)
++        self.assertEqual((body["previous_count"], body["count"]), (1, 2))
++        self.assertEqual(len(self.handle(self.price("b2"))), 1)
++
++    def test_reload_drops_a_brand_that_is_no_longer_eligible(self):
++        self.write("brand_id\nb2\n")
++        self.assertEqual(admin.reload_eligible_brands()[0], 200)
++        self.assertEqual(self.handle(self.price("b1")), [])
++
++    def test_missing_export_keeps_the_current_list(self):
++        os.remove(self.path)
++        status, body = admin.reload_eligible_brands()
++        self.assertEqual(status, 500)
++        self.assertEqual(body["status"], "error")
++        self.assertEqual(len(self.handle(self.price("b1"))), 1)
++
++    def test_empty_export_is_refused(self):
++        self.write("brand_id\n")
++        self.assertEqual(admin.reload_eligible_brands()[0], 500)
++        self.assertEqual(len(self.handle(self.price("b1"))), 1)
++
++    def test_malformed_export_keeps_the_current_list(self):
++        self.write("something_else\nb9\n")
++        self.assertEqual(admin.reload_eligible_brands()[0], 500)
++        self.assertEqual(len(self.handle(self.price("b1"))), 1)
++        self.assertEqual(self.handle(self.price("b9")), [])
++
++    def test_reload_is_not_routed_on_get(self):
++        self.assertIn(("POST", "/admin/reload-eligible-brands"), admin.ROUTES)
++        self.assertNotIn(("GET", "/admin/reload-eligible-brands"), admin.ROUTES)
++
++
++if __name__ == "__main__":
++    unittest.main()
+
+
