@@ -98,7 +98,7 @@ So it's mostly duplication, it rarely loads, and the two parts that are unique a
 the parts that must apply even when nothing else loads (answers from a non-expert user;
 the honest final report).
 
-**Proposal (not implemented, needs your OK):** delete `rules/full.md`.
+**Proposal (approved and done after this check; see `docs/M2-handoff.md`):** delete `rules/full.md`.
 - Move the answers-from-the-user rule into SKILL.md "Asking the user" (about 3 lines):
   a user's answer to a material technical question is a statement, not verification;
   without evidence or a named source it becomes an accepted assumption with its
@@ -123,12 +123,13 @@ Before the first edit in full mode, print:
 Groundwork check — unknowns affecting this edit: <none | U…>; decision record: <path | not needed because …>
 ```
 
-This makes a skipped flow visible (G5 spirit) without adding process. It's a proposal
-only; I'd rather let the eval baseline show whether the heavy-task behaviour is actually
-worse than without the skill before adding anything.
+Decision after this check: a one-line pre-edit check was added to SKILL.md now, in the
+user's wording (see `docs/M2-handoff.md` §2). Not yet tested.
 
 ## 6. Size
 
-SKILL.md is 107 lines, 5,858 characters (≈ 1.5k tokens): about 15% over the ~1.3k budget
-after the question-shape fix. Phase files 20–49 lines, templates 15–34, probes 22–30: all
+Correction, measured after this check: the character-based estimates undercounted.
+Measured against an empty-body skill on `claude-opus-5`, the version tested here loads at
+≈ 2.03k tokens; after the full.md merge and pre-edit check, ≈ 2.27k (118 lines). The size
+is accepted; no trimming to a budget. Phase files 20–49 lines, templates 15–34, probes 22–30: all
 within budget.

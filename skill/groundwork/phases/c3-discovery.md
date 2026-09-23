@@ -16,8 +16,10 @@ config, schedules, filters and data definitions often live in other repos.
    has one; record its results as claims like any other.
 2. Record each material finding as a claim in `research.md`:
    `[status · source · scope] statement`, with scope = repo@commit (`git rev-parse --short HEAD`)
-   and date. Config and code are evidence of what is *configured* or *written*, not of
-   what runs; say which.
+   and date. Status: `observed` · `inferred` · `unknown` · `contradicted`. Source: code ·
+   config/manifest · documentation · runtime observation · owner statement · vendor
+   statement. A citation proves what its source says, nothing more: config and code show
+   what is *configured* or *written*, not what runs; a doc shows what the page says.
 3. For every always-material trigger you find, record it, even if it turns out harmless.
 4. **Proxies (G3):** when code uses a field/flag/attribute to stand for a concept, record
    `proxy: <X> used as <concept Y> at <file:line>` and look for other places that decide the

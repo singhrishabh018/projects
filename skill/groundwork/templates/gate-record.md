@@ -13,3 +13,13 @@ Blocked:       <work that does>
 Next action:   <what would complete it, and who owns it>
 Recorded:      <date>
 ```
+
+## Defaults when a gate can't complete
+
+| Situation | Default |
+|---|---|
+| Missing access (logs, DB, partner UI) | Claim stays unconfirmed; give the user the exact check to run (answer option 2); dependent work blocked unless an assumption is accepted |
+| Unanswered question | Unknown stays `awaiting`; apply its declared no-answer default |
+| Reviewer unavailable | Self-review labelled *not independent*; final report says so |
+| Review budget exhausted | List remaining material gaps; no "passed" |
+| Connector failure | Affected claims `unknown` with a retry note; offer paste/export fallback |

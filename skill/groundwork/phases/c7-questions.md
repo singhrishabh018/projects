@@ -45,5 +45,5 @@ unless the user explicitly asks for that specific message.
 
 Mark the unknown `awaiting` (who, via what, when). Routing a question unblocks nothing:
 dependent work stays blocked until the unknown is `resolved` or `accepted-assumption`.
-Record answers as claims per `rules/full.md` (answers from the user).
+Record answers as claims per SKILL.md ("Answers are statements, not verification").
 Keep doing everything the affected-work map says is independent.

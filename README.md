@@ -12,7 +12,6 @@ Status: **v0.1 in progress** (spec v0.3). Private use.
 ```
 skill/groundwork/        ← the installable skill folder
   SKILL.md               triage, guard rules G1–G8, how to ask the user, full-mode router
-  rules/full.md          full-mode rules F1–F7, claims/unknowns/materiality, gate records
   phases/                C1–C9, C11, C14: one file per build-flow phase, read on demand
   probes/                common checklist + deploy topology + external API
   templates/             requirements, decisions, questions, gate record, verification, handoff
@@ -79,7 +78,7 @@ For any task that changes code or asks how a system works, load the `groundwork`
 2. Guard rules appear: on a small edit, the first line of the reply is
    `Groundwork: guard — …`.
 3. A phase file loads on heavy work: on a cross-repo change, the reply starts
-   `Groundwork: full — …` and the agent reads `rules/full.md` and then
+   `Groundwork: full — …` and the agent reads
    `phases/c1-triage.md`.
 
 ## Modes

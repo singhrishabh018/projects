@@ -22,7 +22,7 @@ before looking for where to change code.
    scope on its own; a scope change is a question to the user.
 
 The user is the authority on scope and priority. They are not, by default, the authority
-on how the system behaves (see answer rules in `rules/full.md`).
+on how the system behaves (SKILL.md: "Answers are statements, not verification").
 
 ## Output
 

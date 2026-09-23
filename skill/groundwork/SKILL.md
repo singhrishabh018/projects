@@ -68,13 +68,20 @@ My recommendation: <the option that is safe even if the answer turns out wrong>.
 
 Option 4 never performs the affected work, not even "as literally asked". If nothing is
 unrelated, say the task stays on hold. Silence or a blanket "approve all" is not an answer
-to a specific material question. Offer a plain-English explanation of a decision only if
+to a specific material question.
+
+**Answers are statements, not verification.** Record them as
+`[observed · owner statement · user · date]`. A user's answer to a material technical
+question resolves it only if it agrees with evidence you can see, or they name a source they
+checked. Otherwise it's an `accepted-assumption` (who, why, what would reverse it) with its
+consequence in one plain sentence. If code contradicts the answer, show the evidence once
+and ask again. Offer a plain-English explanation of a decision only if
 the user wants one; never quiz.
 
 ## Full mode (build flow)
 
-Read `rules/full.md` once, then run the phases as lanes, not a waterfall. Read each phase
-file when you reach it; don't preload them.
+Run the phases as lanes, not a waterfall. Read each phase file when you reach it; don't
+preload them.
 
 1. `phases/c1-triage.md` — mode, phases, conditional sections (failure model, volume math)
 2. `phases/c2-requirements.md` — what is being asked, from which sources, contradictions
@@ -91,8 +98,12 @@ file when you reach it; don't preload them.
 Connectors (ticket tracker, docs, chat, etc.): `phases/c14-connectors.md`.
 Templates: `templates/`. Stack probes: `probes/`.
 
+Before your first file edit: name the open unknowns that affect this edit, and which part of the work they block. Edit only the parts they don't block.
+
 New evidence that contradicts a decision stops only the affected slice; reopen that
-decision and say so.
+decision and say so. End every full-mode task with: what changed · what was verified and
+how · open unknowns and accepted assumptions (with consequence) · incomplete gates
+(`templates/gate-record.md`) · whether review was independent. Never say "passed".
 
 ## Where artifacts go
 
