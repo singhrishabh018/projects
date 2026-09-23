@@ -30,7 +30,7 @@ cold caches (~$0.18–0.24 per run) and isn't comparable, so the table uses warm
 | cross, with, v1 description ×1 | v1 | **no**: said "let me load the groundwork skill", never did | **yes** | $0.244 (cold) | 7 |
 | cross, with, v2 description ×4 | v2 (directive "load BEFORE…") | **yes** (4/4), before any read or edit | **no** (0/4): asked first, nothing edited | $0.100–0.107 | 7–8 |
 
-Loaded skill body in context: 5,079 characters ≈ 1.3k tokens (the budget).
+Loaded skill body in context: 5,079 characters ≈ 1.3k tokens, measured before the option-4 wording fix added ~250 characters (budget: ~1.3k).
 
 ## What this shows
 
@@ -50,7 +50,7 @@ Loaded skill body in context: 5,079 characters ≈ 1.3k tokens (the budget).
 
 ## Defects found (to fix in M2, not tuned further here)
 
-1. **Option 4 misapplied (1 of 3 runs after the wording fix, 1 of 2 before).** "None of
+1. **Option 4 misapplied (1 of 2 runs before the wording fix, 1 of 2 after).** "None of
    these" was written as "I'll do the breaking rename anyway". The fix belongs in the M2
    question template (`templates/questions.md`, `phases/c7-questions.md`), with the no-answer
    default filled in explicitly.
