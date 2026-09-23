@@ -13,9 +13,11 @@ Status: **v0.1 in progress** (spec v0.3). Private use.
 skill/groundwork/        ← the installable skill folder
   SKILL.md               triage, guard rules G1–G8, how to ask the user, full-mode router
   rules/full.md          full-mode rules F1–F7, claims/unknowns/materiality, gate records
-  phases/ probes/ templates/   (M2)
+  phases/                C1–C9, C11, C14: one file per build-flow phase, read on demand
+  probes/                common checklist + deploy topology + external API
+  templates/             requirements, decisions, questions, gate record, verification, handoff
 eval/                    evaluation harness and cases (M3)
-docs/M0-build-plan.md    scope, spec gaps and resolutions, verified host facts
+docs/                    M0 plan (scope, spec gaps, verified host facts), M1/M2 checks
 NOTES-deferred.md        ideas intentionally left out of v0.1
 ```
 

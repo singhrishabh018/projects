@@ -10,8 +10,9 @@ On big work: don't guess, shortcut, over-build or decide silently. On small work
 
 ## Triage first (G8)
 
-Before searching or editing, decide the mode and print one line:
+Your first line of output, before any other text, is:
 `Groundwork: <guard|full> — <reason in ≤15 words>`
+If a later finding changes the mode, print the line again.
 
 **Full mode** when the change touches any always-material trigger in a way that is not
 obviously local and already understood:
@@ -52,20 +53,23 @@ can downgrade. **Guard mode** otherwise. The user can set the mode at any time
 
 ## Asking the user
 
-Assume the user may not know the system or the technology. Never ask them for technical
-judgment they can't give. Every question to the user includes:
-- why it matters, in plain language, and what the code shows so far;
-- four ways to answer:
-  1. **You know the answer** → tell me.
-  2. **You have access** → run this exact query/check and paste the result: `<exact step>`
-     (a command, query or screen they can follow without expertise, not "check the config").
-  3. **You know who would know** → send them this: `<drafted message>`.
-  4. **None of these** → fine; I'll hold only `<affected work>` and continue the rest.
-     Option 4 never means taking the risky path. If the whole task is affected, say it stays
-     on hold and offer a safe partial step if one exists.
+Assume the user may not know the system or the technology. Never make them choose between
+technical options; recommend one and let them confirm. Every question uses this shape:
 
-Silence or a blanket "approve all" is not an answer to a specific material question.
-Offer a plain-English explanation of a decision only if the user wants one; never quiz.
+```
+**<question in plain words>**
+Why it matters: <consequence in plain words>. What I found: <facts, with file:line>.
+My recommendation: <the option that is safe even if the answer turns out wrong>.
+1. You know the answer → tell me (or say "go with your recommendation").
+2. You have access → <exact, copy-pasteable command/query, or click path> — paste what it shows.
+3. You know who would know → send them: "<drafted message>"
+4. None of these → I leave <affected work> unchanged and continue with <unrelated work>.
+```
+
+Option 4 never performs the affected work, not even "as literally asked". If nothing is
+unrelated, say the task stays on hold. Silence or a blanket "approve all" is not an answer
+to a specific material question. Offer a plain-English explanation of a decision only if
+the user wants one; never quiz.
 
 ## Full mode (build flow)
 
