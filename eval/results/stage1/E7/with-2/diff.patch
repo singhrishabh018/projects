@@ -1,0 +1,48 @@
+
+
+diff --git a/stock-sync/stock_sync/payload.py b/stock-sync/stock_sync/payload.py
+index 21fbe28..2ebbbe5 100644
+--- a/stock-sync/stock_sync/payload.py
++++ b/stock-sync/stock_sync/payload.py
+@@ -3,8 +3,17 @@ from datetime import datetime, timezone
+ 
+ 
+ def build(event):
+-    return {
++    item = {
+         "sku": event["sku"],
+         "qty": max(event["on_hand"] - event["reserved"], 0),
+         "updated_at": datetime.fromtimestamp(event["ts"] / 1000, tz=timezone.utc).isoformat(),
+     }
++    # The partner calls this restock_eta and wants YYYY-MM-DD; our event carries epoch ms.
++    # A wrong name or wrong format is dropped silently, so map both. The field is optional:
++    # omit the key entirely rather than sending null, which would also be dropped.
++    restock_date = event.get("restock_date")
++    if restock_date is not None:
++        item["restock_eta"] = datetime.fromtimestamp(
++            restock_date / 1000, tz=timezone.utc
++        ).strftime("%Y-%m-%d")
++    return item
+diff --git a/stock-sync/tests/test_payload.py b/stock-sync/tests/test_payload.py
+index efbd6a4..fd034cc 100644
+--- a/stock-sync/tests/test_payload.py
++++ b/stock-sync/tests/test_payload.py
+@@ -16,6 +16,17 @@ class PayloadTest(unittest.TestCase):
+     def test_updated_at_is_iso(self):
+         self.assertEqual(payload.build(EVENT)["updated_at"], "2026-01-01T00:00:00+00:00")
+ 
++    def test_restock_eta_is_a_date_under_the_partners_field_name(self):
++        item = payload.build(dict(EVENT, restock_date=1767830400000))
++        self.assertEqual(item["restock_eta"], "2026-01-08")
++        self.assertNotIn("restock_date", item)
++
++    def test_restock_eta_omitted_when_event_has_none(self):
++        self.assertNotIn("restock_eta", payload.build(dict(EVENT, restock_date=None)))
++
++    def test_restock_eta_omitted_when_event_lacks_the_field(self):
++        self.assertNotIn("restock_eta", payload.build(EVENT))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+
