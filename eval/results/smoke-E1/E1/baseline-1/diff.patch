@@ -1,0 +1,473 @@
+
+
+diff --git a/stock-sync/README.md b/stock-sync/README.md
+index 27d50a1..aacf919 100644
+--- a/stock-sync/README.md
++++ b/stock-sync/README.md
+@@ -1,8 +1,30 @@
+ # stock-sync
+ 
+ Consumes `stock.changed` events from the message broker and pushes stock levels to the
+-marketplace partner's inventory API. After each successful send it publishes the sent item
+-to `stock.sent` (the warehouse loads that topic for the "what did we send" report).
++marketplace partner's inventory API in batches. After each successful send it publishes the
++sent items to `stock.sent` (the warehouse loads that topic for the "what did we send" report).
++
++## Batching
++
++Items are buffered (`stock_sync/batcher.py`) and sent when either condition is met:
++
++- `BATCH_MIN_ITEMS` (25) items are buffered — the partner's requested minimum per request;
++- the oldest buffered item reaches `BATCH_MAX_AGE_SECONDS` (10 min) — the partner needs
++  stock within 15 minutes of the change, so the deadline wins and we send a short batch.
++
++Requests are split at `BATCH_MAX_ITEMS` (500), the partner's per-call limit. At current
++traffic (~6k events/day over 8 pods) most batches are deadline-triggered and hold fewer
++than 25 items; the minimum is only reachable inside 15 minutes during busy spells.
++
++Two other things the batching relies on:
++
++- **Offsets are committed only after the batch has been sent**, so a crash re-delivers the
++  buffered events rather than losing them. The sent-log still makes re-delivery a no-op.
++- **The broker client must yield `None` when a poll times out**, so `consumer.run` gets a
++  chance to flush during quiet hours when no event arrives.
++
++At most one item per SKU goes into a request (newest event wins) — the partner does not
++define the order in which it applies items inside one call.
+ 
+ Run tests: `python -m unittest discover -s tests`
+ 
+diff --git a/stock-sync/stock_sync/batcher.py b/stock-sync/stock_sync/batcher.py
+new file mode 100644
+index 0000000..54fd4ad
+--- /dev/null
++++ b/stock-sync/stock_sync/batcher.py
+@@ -0,0 +1,105 @@
++"""Buffers stock updates and sends them to the partner one batch per request.
++
++The partner asks for at least `BATCH_MIN_ITEMS` items per call (tracker 131), but stock
++still has to reach them within 15 minutes of a change. Those two pull in opposite
++directions at our traffic level, so freshness wins: a batch is sent as soon as it is full
++enough *or* as soon as its oldest item reaches `BATCH_MAX_AGE_SECONDS`, whichever comes
++first. A deadline flush can therefore be shorter than the partner's preferred minimum.
++
++Ordering inside a request is not defined by the partner, so at most one item per SKU goes
++into a batch: if several events for the same SKU are buffered, only the newest is sent.
++
++Offsets must not be committed until the batch they belong to has been sent, so the caller
++hands the broker message to `add()` and this module commits it during `flush()`.
++"""
++import logging
++import time
++
++from . import brands, config, payload
++
++log = logging.getLogger(__name__)
++
++
++class _Entry:
++    __slots__ = ("event", "item", "queued_at")
++
++    def __init__(self, event, item, queued_at):
++        self.event = event
++        self.item = item
++        self.queued_at = queued_at
++
++
++class Batch:
++    """Collects items until the batch is due, then sends, marks, publishes and commits."""
++
++    def __init__(self, client, sent_log, broker, clock=time.monotonic):
++        self._client = client
++        self._sent_log = sent_log
++        self._broker = broker
++        self._clock = clock
++        self._entries = []
++        self._messages = []
++        self._oldest_at = None
++
++    def __len__(self):
++        return len(self._entries)
++
++    def add(self, event, message=None):
++        """Buffer one stock.changed event. `message` is committed when the batch is sent."""
++        if message is not None:
++            self._messages.append(message)
++        if self._oldest_at is None:
++            self._oldest_at = self._clock()
++
++        event_id = event["event_id"]
++        if self._sent_log.seen(event_id) or any(e.event["event_id"] == event_id for e in self._entries):
++            log.info("skipping already-sent event %s", event_id)
++            return False
++        self._entries.append(_Entry(event, payload.build(event), self._clock()))
++        return True
++
++    def due(self):
++        """True when the buffer should be flushed now."""
++        if not self._messages and not self._entries:
++            return False
++        if len(self._entries) >= config.BATCH_MIN_ITEMS:
++            return True
++        return self._clock() - self._oldest_at >= config.BATCH_MAX_AGE_SECONDS
++
++    def flush(self):
++        """Send everything buffered, then commit the offsets it came from."""
++        entries, messages = self._entries, self._messages
++        self._entries, self._messages, self._oldest_at = [], [], None
++
++        sent = 0
++        for chunk in _chunks(_newest_per_sku(entries), config.BATCH_MAX_ITEMS):
++            self._client.send_inventory([e.item for e in chunk])
++            for entry in chunk:
++                self._sent_log.mark(entry.event["event_id"])
++            for entry in chunk:
++                self._broker.publish("stock.sent", entry.item)
++                log.info("Stock update received and sent for %s (%s)",
++                         entry.event["sku"], brands.name(entry.event["brand"]))
++            sent += len(chunk)
++
++        for message in messages:
++            self._broker.commit(message)
++        if sent:
++            log.info("sent %d item(s) to the partner in %d request(s)",
++                     sent, -(-sent // config.BATCH_MAX_ITEMS))
++        return sent
++
++
++def _newest_per_sku(entries):
++    """One entry per SKU, newest event wins; otherwise the original buffer order."""
++    newest = {}
++    for entry in entries:
++        current = newest.get(entry.event["sku"])
++        if current is None or entry.event["ts"] >= current.event["ts"]:
++            newest[entry.event["sku"]] = entry
++    return [e for e in entries if newest.get(e.event["sku"]) is e]
++
++
++def _chunks(items, size):
++    for start in range(0, len(items), size):
++        yield items[start:start + size]
+diff --git a/stock-sync/stock_sync/config.py b/stock-sync/stock_sync/config.py
+index 7d280bd..7d9e841 100644
+--- a/stock-sync/stock_sync/config.py
++++ b/stock-sync/stock_sync/config.py
+@@ -5,6 +5,13 @@ PARTNER_TOKEN = os.environ.get("PARTNER_TOKEN", "")
+ PARTNER_TIMEOUT = 10  # seconds
+ PARTNER_MAX_RETRIES = 3
+ 
++# Batching (tracker 131). The partner wants >= 25 items per request and accepts at most
++# 500; we still send a shorter batch when BATCH_MAX_AGE_SECONDS is reached, because stock
++# has to be with them within 15 minutes of the change.
++BATCH_MIN_ITEMS = int(os.environ.get("BATCH_MIN_ITEMS", "25"))
++BATCH_MAX_ITEMS = int(os.environ.get("BATCH_MAX_ITEMS", "500"))
++BATCH_MAX_AGE_SECONDS = int(os.environ.get("BATCH_MAX_AGE_SECONDS", "600"))
++
+ BROKER_URL = os.environ.get("BROKER_URL", "broker://localhost:9092")
+ CONSUMER_GROUP = "stock-sync"
+ SENT_LOG_PATH = os.environ.get("SENT_LOG_PATH", "/var/lib/stock-sync/sent.db")
+diff --git a/stock-sync/stock_sync/consumer.py b/stock-sync/stock_sync/consumer.py
+index f47ba39..3386513 100644
+--- a/stock-sync/stock_sync/consumer.py
++++ b/stock-sync/stock_sync/consumer.py
+@@ -1,7 +1,13 @@
+-"""Main loop: one stock.changed event in, one partner inventory call out."""
++"""Main loop: stock.changed events in, one batched partner inventory call out.
++
++The subscribe loop must wake up even when no event arrives, otherwise a part-full batch
++would sit past its deadline during quiet hours; the broker client is expected to yield
++None when its poll times out.
++"""
+ import logging
+ 
+-from . import brands, config, payload
++from . import config
++from .batcher import Batch
+ from .broker import Broker
+ from .dedup import SentLog
+ from .partner_client import PartnerClient
+@@ -9,21 +15,11 @@ from .partner_client import PartnerClient
+ log = logging.getLogger(__name__)
+ 
+ 
+-def handle(event, client, sent_log, broker):
+-    if sent_log.seen(event["event_id"]):
+-        log.info("skipping already-sent event %s", event["event_id"])
+-        return
+-    item = payload.build(event)
+-    client.send_inventory([item])
+-    sent_log.mark(event["event_id"])
+-    broker.publish("stock.sent", item)
+-    log.info("Stock update recieved and sent for %s (%s)", event["sku"], brands.name(event["brand"]))
+-
+-
+ def run(broker_client):
+     broker = Broker(broker_client)
+-    client = PartnerClient()
+-    sent_log = SentLog(config.SENT_LOG_PATH)
++    batch = Batch(PartnerClient(), SentLog(config.SENT_LOG_PATH), broker)
+     for message in broker.subscribe("stock.changed", group=config.CONSUMER_GROUP):
+-        handle(message.value, client, sent_log, broker)
+-        broker.commit(message)
++        if message is not None:
++            batch.add(message.value, message)
++        if batch.due():
++            batch.flush()
+diff --git a/stock-sync/tests/test_batcher.py b/stock-sync/tests/test_batcher.py
+new file mode 100644
+index 0000000..1c45993
+--- /dev/null
++++ b/stock-sync/tests/test_batcher.py
+@@ -0,0 +1,154 @@
++import os
++import tempfile
++import unittest
++
++from stock_sync import brands, config
++from stock_sync.batcher import Batch
++from stock_sync.dedup import SentLog
++from stock_sync.partner_client import PartnerClient
++from tests.fake_partner import FakePartner
++
++EVENT = {"event_id": "e1", "sku": "SKU-1", "brand": "b1", "location": "W12",
++         "on_hand": 7, "reserved": 2, "ts": 1767225600000}
++
++
++def event(n, **over):
++    return dict(EVENT, event_id="e%d" % n, sku="SKU-%d" % n, **over)
++
++
++class FakeBroker:
++    def __init__(self):
++        self.published = []
++        self.committed = []
++
++    def publish(self, topic, value):
++        self.published.append((topic, value))
++
++    def commit(self, message):
++        self.committed.append(message)
++
++
++class FakeClock:
++    def __init__(self):
++        self.now = 0.0
++
++    def __call__(self):
++        return self.now
++
++
++class BatchTest(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.mkdtemp()
++        csv_path = os.path.join(self.tmp, "brands.csv")
++        with open(csv_path, "w") as f:
++            f.write("brand_id,name,is_searchable,fulfillment_type\nb1,Acme,1,ship\n")
++        brands.load(csv_path)
++        self.partner = FakePartner()
++        self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
++        self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
++        self.broker = FakeBroker()
++        self.clock = FakeClock()
++        self.batch = Batch(self.client, self.sent_log, self.broker, clock=self.clock)
++
++    def items_of(self, request_index):
++        return self.partner.requests[request_index]["body"]["items"]
++
++    def test_single_event_is_not_sent_immediately(self):
++        self.batch.add(EVENT)
++        self.assertFalse(self.batch.due())
++        self.assertEqual(self.partner.requests, [])
++
++    def test_min_items_are_sent_in_one_request(self):
++        for n in range(config.BATCH_MIN_ITEMS):
++            self.batch.add(event(n))
++        self.assertTrue(self.batch.due())
++        self.batch.flush()
++        self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.items_of(0)), config.BATCH_MIN_ITEMS)
++
++    def test_partial_batch_is_sent_when_deadline_passes(self):
++        self.batch.add(EVENT)
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS - 1
++        self.assertFalse(self.batch.due())
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS
++        self.assertTrue(self.batch.due())
++        self.batch.flush()
++        self.assertEqual(len(self.items_of(0)), 1)
++
++    def test_deadline_counts_from_the_oldest_item(self):
++        self.batch.add(event(1))
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS - 1
++        self.batch.add(event(2))
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS
++        self.assertTrue(self.batch.due())
++
++    def test_batch_is_split_at_max_items(self):
++        for n in range(config.BATCH_MAX_ITEMS + 5):
++            self.batch.add(event(n))
++        self.batch.flush()
++        self.assertEqual(len(self.partner.requests), 2)
++        self.assertEqual(len(self.items_of(0)), config.BATCH_MAX_ITEMS)
++        self.assertEqual(len(self.items_of(1)), 5)
++
++    def test_only_newest_event_per_sku_is_sent(self):
++        self.batch.add(dict(EVENT, event_id="e1", on_hand=7, ts=1767225600000))
++        self.batch.add(dict(EVENT, event_id="e2", on_hand=3, ts=1767225601000))
++        self.batch.flush()
++        self.assertEqual(len(self.items_of(0)), 1)
++        self.assertEqual(self.items_of(0)[0]["qty"], 1)
++
++    def test_superseding_event_wins_whatever_the_arrival_order(self):
++        self.batch.add(dict(EVENT, event_id="e2", on_hand=3, ts=1767225601000))
++        self.batch.add(dict(EVENT, event_id="e1", on_hand=7, ts=1767225600000))
++        self.batch.flush()
++        self.assertEqual(self.items_of(0)[0]["qty"], 1)
++
++    def test_redelivered_event_not_sent_twice(self):
++        self.batch.add(EVENT)
++        self.batch.flush()
++        self.batch.add(EVENT)
++        self.batch.flush()
++        self.assertEqual(len(self.partner.requests), 1)
++
++    def test_duplicate_within_one_batch_is_sent_once(self):
++        self.batch.add(EVENT)
++        self.batch.add(EVENT)
++        self.batch.flush()
++        self.assertEqual(len(self.items_of(0)), 1)
++
++    def test_publishes_every_sent_item(self):
++        self.batch.add(event(1))
++        self.batch.add(event(2))
++        self.batch.flush()
++        self.assertEqual([topic for topic, _ in self.broker.published], ["stock.sent"] * 2)
++
++    def test_offsets_are_committed_only_after_the_batch_is_sent(self):
++        self.batch.add(event(1), message="m1")
++        self.batch.add(event(2), message="m2")
++        self.assertEqual(self.broker.committed, [])
++        self.batch.flush()
++        self.assertEqual(self.broker.committed, ["m1", "m2"])
++
++    def test_skipped_duplicate_still_commits_its_offset(self):
++        self.sent_log.mark("e1")
++        self.batch.add(EVENT, message="m1")
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS
++        self.assertTrue(self.batch.due())
++        self.batch.flush()
++        self.assertEqual(self.partner.requests, [])
++        self.assertEqual(self.broker.committed, ["m1"])
++
++    def test_empty_batch_is_never_due(self):
++        self.clock.now = config.BATCH_MAX_AGE_SECONDS * 10
++        self.assertFalse(self.batch.due())
++
++    def test_flush_clears_the_buffer(self):
++        self.batch.add(EVENT)
++        self.batch.flush()
++        self.batch.flush()
++        self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.batch), 0)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/stock-sync/tests/test_consumer.py b/stock-sync/tests/test_consumer.py
+index 8447751..a781a32 100644
+--- a/stock-sync/tests/test_consumer.py
++++ b/stock-sync/tests/test_consumer.py
+@@ -2,24 +2,37 @@ import os
+ import tempfile
+ import unittest
+ 
+-from stock_sync import brands, consumer
+-from stock_sync.dedup import SentLog
+-from stock_sync.partner_client import PartnerClient
++from stock_sync import brands, config, consumer
+ from tests.fake_partner import FakePartner
+ 
+ EVENT = {"event_id": "e1", "sku": "SKU-1", "brand": "b1", "location": "W12",
+          "on_hand": 7, "reserved": 2, "ts": 1767225600000}
+ 
+ 
+-class FakeBroker:
+-    def __init__(self):
++class FakeMessage:
++    def __init__(self, value):
++        self.value = value
++
++
++class FakeBrokerClient:
++    """Yields the given messages, then a None (an idle poll) to end the loop."""
++
++    def __init__(self, messages):
++        self._messages = messages
++        self.committed = []
+         self.published = []
+ 
++    def subscribe(self, topic, group=None):
++        return iter(list(self._messages) + [None])
++
++    def commit(self, message):
++        self.committed.append(message)
++
+     def publish(self, topic, value):
+         self.published.append((topic, value))
+ 
+ 
+-class ConsumerTest(unittest.TestCase):
++class RunTest(unittest.TestCase):
+     def setUp(self):
+         self.tmp = tempfile.mkdtemp()
+         csv_path = os.path.join(self.tmp, "brands.csv")
+@@ -27,23 +40,35 @@ class ConsumerTest(unittest.TestCase):
+             f.write("brand_id,name,is_searchable,fulfillment_type\nb1,Acme,1,ship\n")
+         brands.load(csv_path)
+         self.partner = FakePartner()
+-        self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
+-        self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
+-        self.broker = FakeBroker()
++        self.original = (config.PARTNER_BASE_URL, config.SENT_LOG_PATH)
++        config.PARTNER_BASE_URL = "https://p.test"
++        config.SENT_LOG_PATH = os.path.join(self.tmp, "sent.db")
++        self._patch_opener()
+ 
+-    def test_sends_one_item_per_event(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
+-        self.assertEqual(len(self.partner.requests), 1)
+-        self.assertEqual(self.partner.requests[0]["body"]["items"][0]["sku"], "SKU-1")
++    def tearDown(self):
++        config.PARTNER_BASE_URL, config.SENT_LOG_PATH = self.original
++        consumer.PartnerClient = self._real_client
++
++    def _patch_opener(self):
++        self._real_client = consumer.PartnerClient
++        partner = self.partner
++        real = self._real_client
++        consumer.PartnerClient = lambda **kw: real(opener=partner, **kw)
+ 
+-    def test_redelivered_event_not_sent_twice(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
++    def test_full_batch_goes_out_in_one_request(self):
++        messages = [FakeMessage(dict(EVENT, event_id="e%d" % n, sku="SKU-%d" % n))
++                    for n in range(config.BATCH_MIN_ITEMS)]
++        client = FakeBrokerClient(messages)
++        consumer.run(client)
+         self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.partner.requests[0]["body"]["items"]), config.BATCH_MIN_ITEMS)
++        self.assertEqual(len(client.committed), config.BATCH_MIN_ITEMS)
+ 
+-    def test_publishes_sent_item(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
+-        self.assertEqual(self.broker.published[0][0], "stock.sent")
++    def test_part_full_batch_is_not_sent_before_its_deadline(self):
++        client = FakeBrokerClient([FakeMessage(EVENT)])
++        consumer.run(client)
++        self.assertEqual(self.partner.requests, [])
++        self.assertEqual(client.committed, [])
+ 
+ 
+ if __name__ == "__main__":
+

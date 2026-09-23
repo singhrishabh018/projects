@@ -234,7 +234,8 @@ def run_one(case, arm, idx, args, batch_dir):
 
     ctx = dict(timeline=tl, init=init, arm=arm, ws_dir=ws, gw_home=gw, key=case.key,
                diffs=diffs, store_files=store_files, invocation_results=results,
-               driver_turns=dturns, hidden_tests=hidden, repos=repos)
+               driver_turns=dturns, hidden_tests=hidden, repos=repos,
+               raw_invocations=invocations, near_limit_threshold=args.near_limit)
     m = metrics.compute(ctx)
     m["harness_wall_seconds"] = round(wall, 1)
     m["driver_cost_usd"] = round(drv.cost, 4)
@@ -350,34 +351,132 @@ def _write_json(path, obj):
 
 
 # --------------------------------------------------------------------------- run many
+# Batch state: <batch>/state.json records every slot ("<case>/<arm>-<i>"):
+#   pending | running | done | aborted | failed, with attempts, cost and reason.
+# A slot counts as done only if its run.json exists and the run wasn't aborted; the files
+# are the source of truth, state.json is the readable record. On --resume-batch, done slots
+# are skipped and never rebuilt; every other slot's old files move to <slot>/attempts/<n>/.
+RESUME_KEYS = ("cases_dir", "cases", "arms", "n", "model", "effort", "driver_model",
+               "judge_model", "skill_dir")
+
+
+def slot_status(batch_dir, case_id, arm, i):
+    d = os.path.join(batch_dir, case_id, f"{arm}-{i}")
+    rp = os.path.join(d, "run.json")
+    if os.path.exists(rp):
+        try:
+            with open(rp) as f:
+                return "aborted" if json.load(f).get("aborted") else "done"
+        except ValueError:
+            return "failed"
+    if os.path.exists(os.path.join(d, "error.json")):
+        return "failed"
+    return "pending" if not os.path.isdir(d) or not os.listdir(d) else "failed"
+
+
+def _archive_slot(batch_dir, case_id, arm, i):
+    d = os.path.join(batch_dir, case_id, f"{arm}-{i}")
+    if not os.path.isdir(d):
+        return
+    items = [x for x in os.listdir(d) if x != "attempts"]
+    if not items:
+        return
+    adir = os.path.join(d, "attempts")
+    n = len(os.listdir(adir)) + 1 if os.path.isdir(adir) else 1
+    dest = os.path.join(adir, str(n))
+    os.makedirs(dest)
+    for x in items:
+        shutil.move(os.path.join(d, x), os.path.join(dest, x))
+
+
+class BatchState:
+    def __init__(self, batch_dir):
+        self.path = os.path.join(batch_dir, "state.json")
+        self.data = {"slots": {}}
+        if os.path.exists(self.path):
+            with open(self.path) as f:
+                self.data = json.load(f)
+
+    def set(self, slot, status, **extra):
+        with _lock:
+            rec = self.data["slots"].setdefault(slot, {"attempts": 0})
+            if status == "running":
+                rec["attempts"] = rec.get("attempts", 0) + 1
+            rec["status"] = status
+            rec["updated"] = datetime.datetime.now().isoformat(timespec="seconds")
+            rec.update(extra)
+            tmp = self.path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(self.data, f, indent=1, sort_keys=True)
+            os.replace(tmp, self.path)
+
+
 def cmd_run(args):
-    cs = cases_mod.load_all(args.cases_dir, args.case)
-    arms = ["with", "baseline"] if args.arm == "both" else [args.arm]
-    batch = args.batch or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    batch_dir = os.path.abspath(os.path.join(args.out, batch))
+    if args.resume_batch:
+        batch_dir = os.path.abspath(args.resume_batch)
+        with open(os.path.join(batch_dir, "batch.json")) as f:
+            meta = json.load(f)
+        for k in RESUME_KEYS:  # the batch's own settings win; the run is the same experiment
+            setattr(args, k, meta[k] if k != "cases" else meta[k])
+        args.case = meta["cases"]
+        args.arm = "both" if meta["arms"] == ["with", "baseline"] else meta["arms"][0]
+        now = _git_head(args.skill_dir)
+        if now != meta["skill_commit"] and not args.allow_skill_change:
+            sys.exit(f"refusing to resume: skill is {now}, batch was run with {meta['skill_commit']}. "
+                     "Mixing skill versions in one batch breaks the comparison. "
+                     "Use --allow-skill-change only if the change can't affect behaviour.")
+        cs = cases_mod.load_all(args.cases_dir, args.case)
+        arms = meta["arms"]
+        meta.setdefault("resumes", []).append(datetime.datetime.now().isoformat(timespec="seconds"))
+    else:
+        cs = cases_mod.load_all(args.cases_dir, args.case)
+        arms = ["with", "baseline"] if args.arm == "both" else [args.arm]
+        batch = args.batch or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        batch_dir = os.path.abspath(os.path.join(args.out, batch))
+        if os.path.exists(os.path.join(batch_dir, "batch.json")):
+            sys.exit(f"{batch_dir} already exists; use --resume-batch {batch_dir} or a new --batch")
+        meta = {"batch": batch, "model": args.model, "effort": args.effort,
+                "driver_model": args.driver_model, "judge_model": args.judge_model,
+                "n": args.n, "arms": arms, "cases": [c.id for c in cs],
+                "cases_dir": os.path.abspath(args.cases_dir),
+                "skill_dir": args.skill_dir, "skill_commit": _git_head(args.skill_dir),
+                "claude_version": _claude_version(args.claude_bin),
+                "near_limit_threshold": args.near_limit,
+                "ambient_claude_dir": sorted(os.listdir(os.path.expanduser("~/.claude")))
+                if os.path.isdir(os.path.expanduser("~/.claude")) else None,
+                "started": datetime.datetime.now().isoformat(timespec="seconds"),
+                "spent_usd": 0.0}
     os.makedirs(batch_dir, exist_ok=True)
     os.makedirs(args.runs_root, exist_ok=True)
     # the eval repo and the cases must not live inside the runs root
     for p in (EVAL_DIR, os.path.abspath(args.cases_dir)):
         if os.path.abspath(p).startswith(os.path.abspath(args.runs_root) + os.sep):
             sys.exit(f"refusing: {p} is inside the runs root {args.runs_root}")
-    meta = {"batch": batch, "model": args.model, "effort": args.effort,
-            "driver_model": args.driver_model, "judge_model": args.judge_model,
-            "n": args.n, "arms": arms, "cases": [c.id for c in cs],
-            "cases_dir": os.path.abspath(args.cases_dir),
-            "skill_dir": args.skill_dir, "skill_commit": _git_head(args.skill_dir),
-            "claude_version": _claude_version(args.claude_bin),
-            "ambient_claude_dir": sorted(os.listdir(os.path.expanduser("~/.claude")))
-            if os.path.isdir(os.path.expanduser("~/.claude")) else None,
-            "started": datetime.datetime.now().isoformat(timespec="seconds")}
     _write_json(os.path.join(batch_dir, "batch.json"), meta)
+    state = BatchState(batch_dir)
 
     # interleave arms so cache warmth and time-of-day effects spread over both
-    jobs = [(c, arm, i) for i in range(1, args.n + 1) for c in cs for arm in arms]
+    slots = [(c, arm, i) for i in range(1, args.n + 1) for c in cs for arm in arms]
+    jobs = []
+    for c, arm, i in slots:
+        st = slot_status(batch_dir, c.id, arm, i)
+        slot = f"{c.id}/{arm}-{i}"
+        if st == "done":
+            if state.data["slots"].get(slot, {}).get("status") != "done":
+                state.set(slot, "done")
+            continue
+        state.set(slot, st if st != "pending" else "pending")
+        jobs.append((c, arm, i))
+    log(f"{batch_dir}: {len(slots) - len(jobs)}/{len(slots)} runs already done, {len(jobs)} to run")
+    if not jobs:
+        import report
+        report.write(batch_dir)
+        return 0
+
+    spent = float(meta.get("spent_usd") or 0)  # cumulative across resumes
     if args.warmup:
         for arm in arms:
-            _warmup(arm, args)
-    spent = 0.0
+            spent += _warmup(arm, args)
     with cf.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         pending = {}
         it = iter(jobs)
@@ -388,30 +487,43 @@ def cmd_run(args):
                 job = next(it, None)
                 if job is None:
                     break
+                c, arm, i = job
+                _archive_slot(batch_dir, c.id, arm, i)
+                state.set(f"{c.id}/{arm}-{i}", "running")
                 pending[pool.submit(run_one, *job, args, batch_dir)] = job
             if not pending:
                 break
             done, _ = cf.wait(pending, return_when=cf.FIRST_COMPLETED)
             for fut in done:
                 job = pending.pop(fut)
+                slot = f"{job[0].id}/{job[1]}-{job[2]}"
                 try:
-                    _, cost = fut.result()
+                    run, cost = fut.result()
                     spent += cost
+                    state.set(slot, "aborted" if run.get("aborted") else "done",
+                              cost_usd=round(cost, 4), reason=run.get("aborted"),
+                              near_limit=run["metrics"]["limits"]["near_limit"])
                 except Exception as e:  # keep the batch going; record the failure
-                    log(f"{job[0].id} {job[1]}-{job[2]} FAILED: {e!r}")
+                    log(f"{slot} FAILED: {e!r}")
                     _write_json(os.path.join(batch_dir, job[0].id, f"{job[1]}-{job[2]}", "error.json"),
                                 {"error": repr(e)})
+                    state.set(slot, "failed", reason=repr(e)[:300])
+            meta["spent_usd"] = round(spent, 2)
+            _write_json(os.path.join(batch_dir, "batch.json"), meta)
+    missing = [s for s, r in state.data["slots"].items() if r.get("status") != "done"]
     if _stop.is_set():
-        log("stopped: the account hit a usage limit; remaining runs were not started. "
-            "Re-run the missing ones later with --case/--arm/--n and a new --batch.")
+        log("stopped: the account hit a usage limit; remaining runs were not started.")
     if spent >= args.max_total_usd:
         log(f"stopped: batch spend ${spent:.2f} reached --max-total-usd {args.max_total_usd}")
+    if missing:
+        log(f"{len(missing)} runs not done: {', '.join(sorted(missing)[:12])}"
+            f"{' …' if len(missing) > 12 else ''}. Resume with: gw_eval.py run --resume-batch {batch_dir}")
     meta["finished"] = datetime.datetime.now().isoformat(timespec="seconds")
     meta["spent_usd"] = round(spent, 2)
     _write_json(os.path.join(batch_dir, "batch.json"), meta)
     import report
     report.write(batch_dir)
-    log(f"done: {batch_dir} (spent ${spent:.2f})")
+    log(f"done: {batch_dir} (spent ${spent:.2f} cumulative)")
     return 0
 
 
@@ -428,7 +540,9 @@ def _warmup(arm, args):
                                    effort=args.effort, max_turns=2, max_budget=1, add_dir=add_dir)
         _, res, _, _, _ = claude_cli.run_stream(cmd, root, claude_cli.child_env(cfg),
                                                 os.path.join(root, "t.jsonl"), 300)
-        log(f"warm-up {arm}: ${float((res or {}).get('total_cost_usd') or 0):.3f}")
+        cost = float((res or {}).get('total_cost_usd') or 0)
+        log(f"warm-up {arm}: ${cost:.3f}")
+        return cost
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -517,6 +631,13 @@ def main(argv=None):
     r.add_argument("--no-judge", action="store_true")
     r.add_argument("--keep-runs", action="store_true", help="keep run workspaces for debugging")
     r.add_argument("--claude-bin", default=os.environ.get("GW_EVAL_CLAUDE", "claude"))
+    r.add_argument("--resume-batch", metavar="DIR",
+                   help="continue an existing batch: run only slots that aren't done, with the "
+                        "batch's recorded settings; completed runs are never rebuilt")
+    r.add_argument("--allow-skill-change", action="store_true",
+                   help="resume even though the skill changed since the batch started")
+    r.add_argument("--near-limit", type=float, default=0.8,
+                   help="flag a run as near a usage limit when account utilization reaches this")
 
     s = sub.add_parser("rescore")
     s.add_argument("results_dir")

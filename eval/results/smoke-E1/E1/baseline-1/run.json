@@ -1,0 +1,371 @@
+{
+ "case": "E1",
+ "arm": "baseline",
+ "index": 1,
+ "run_id": "2abbaa7017",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:06:47",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": 18,
+  "code_edit_count": 7,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 33,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   },
+   "F2": {
+    "first_mention_index": 33,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   }
+  },
+  "premature_edits_signal": [
+   {
+    "unknown": "U1",
+    "edit_index": 18,
+    "path": "stock-sync/stock_sync/batcher.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": true,
+    "signal": true
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 20,
+    "path": "stock-sync/stock_sync/config.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": true,
+    "signal": true
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 22,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": true,
+    "signal": true
+   }
+  ],
+  "premature_signal": true,
+  "driver_turns": 1,
+  "words_read_by_driver": 703,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/2abbaa7017/workspace/stock-sync && python -m unittest discover -s tests 2>&1 | tail -30"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [
+   "stock-sync/stock_sync/batcher.py",
+   "stock-sync/tests/test_batcher.py"
+  ],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "stock-sync/README.md",
+   "stock-sync/stock_sync/batcher.py",
+   "stock-sync/stock_sync/config.py",
+   "stock-sync/stock_sync/consumer.py",
+   "stock-sync/tests/test_batcher.py",
+   "stock-sync/tests/test_consumer.py"
+  ],
+  "lines_added": 347,
+  "lines_removed": 38,
+  "hidden_tests": null,
+  "agent_cost_usd": 1.9072,
+  "agent_turns": 18,
+  "tokens": {
+   "input": 32,
+   "output": 16434,
+   "cache_creation": 40099,
+   "cache_read": 399546
+  },
+  "agent_wall_seconds": 197.9,
+  "invocations": 2,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "diff_present",
+    "desc": "some time-based flush code exists (signal only; judge confirms)",
+    "result": "pass",
+    "detail": [
+     "stock-sync/stock_sync/batcher.py: still has to reach them within 15 minutes of a change. Those two pull in opposite",
+     "stock-sync/stock_sync/batcher.py: enough *or* as soon as its oldest item reaches `BATCH_MAX_AGE_SECONDS`, whichever comes",
+     "stock-sync/stock_sync/batcher.py: def __init__(self, client, sent_log, broker, clock=time.monotonic):",
+     "stock-sync/stock_sync/batcher.py: return self._clock() - self._oldest_at >= config.BATCH_MAX_AGE_SECONDS",
+     "stock-sync/stock_sync/config.py: # 500; we still send a shorter batch when BATCH_MAX_AGE_SECONDS is reached, because stock"
+    ]
+   }
+  ],
+  "harness_wall_seconds": 200.5,
+  "driver_cost_usd": 0.0,
+  "limits": {
+   "near_limit": false,
+   "max_utilization": {
+    "five_hour": 0.15,
+    "seven_day": 0.11
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 9,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8,
+   "backfilled_from_transcripts": true
+  },
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false
+ },
+ "driver_turns": [
+  {
+   "after_invocation": 0,
+   "reply": "I don't know which the partner would prefer. I'll forward your drafted message to our account manager, but I won't hear back today.",
+   "option": 3,
+   "source": "rule[0]",
+   "t": 1790172575.6352205
+  }
+ ],
+ "final_messages": [
+  "Done \u2014 batching is in, all 19 tests pass.\n\n**What changed in `stock-sync`:**\n\n- **`stock_sync/batcher.py`** (new) \u2014 a `Batch` that buffers items and flushes when either the buffer reaches `BATCH_MIN_ITEMS` (25) or the oldest item hits `BATCH_MAX_AGE_SECONDS` (10 min). Sends are split at 500 items per request.\n- **`stock_sync/consumer.py`** \u2014 the loop now buffers instead of calling the partner per event, and **commits offsets only after the batch is sent** (previously each message was committed right after its own send). Without that, a crash with a part-full buffer would silently drop stock updates.\n- **`stock_sync/config.py`** \u2014 the three batch settings, env-overridable.\n- **Tests** \u2014 `tests/test_batcher.py` covers size/deadline triggers, splitting at 500, dedup, commit ordering; `tests/test_consumer.py` rewritten around `run()` since `handle()` is gone.\n- **README** \u2014 documents the policy and the two assumptions below.\n\n**Two judgement calls worth your attention:**\n\n1. **The partner's two asks conflict at our traffic level.** The runbook puts us at ~6k events/day across 8 pods \u2014 roughly 1 event/minute per pod at peak, 4\u20135 per *hour* overnight. Reaching 25 items in one pod's buffer would take ~25 minutes at peak and hours overnight, well past the 15-minute freshness rule. I treated freshness as the hard requirement and the 25-item minimum as a target, so a deadline flush can go out short. It still cuts request volume by up to ~25x at peak and far more overnight, which should address their rate limiting \u2014 but they will keep seeing sub-25 batches, so it's worth telling them that rather than letting them find out.\n\n2. **`consumer.run` now needs the broker client to yield `None` on a poll timeout.** The old loop only ever woke on a message, which was fine when each message was sent immediately. Now, if the iterator blocks indefinitely when idle, a part-full batch would sit there past 15 minutes overnight. I couldn't verify the prod client's semantics from this repo \u2014 the real client is injected. Please confirm it polls with a timeout (and that the timeout is comfortably under 10 minutes); if it blocks instead, the flush needs a different trigger and I can rework it.\n\nI also made the batch send at most one item per SKU (newest event wins), since the partner docs don't define the order items are applied within a request \u2014 two updates for one SKU in the same call could otherwise land stale. The superseded event's item no longer appears in `stock.sent`, so the warehouse \"what did we send\" report will show the sent value only, which I think is what that report wants.\n\nI left `deploy-config` untouched \u2014 the defaults need no manifest change, but the prod overlay is where you'd tune `BATCH_MAX_AGE_SECONDS` if the partner wants fuller batches at the cost of freshness.",
+  "The draft is at `partner-batching-note.md` in the working directory \u2014 edit it freely, I wrote it for the account manager to read rather than for the partner directly, so it may need a pass before it goes outward.\n\nOn not hearing back today: nothing is waiting on the answer. The code is complete and shippable as it stands, and the two options differ only by config values:\n\n- **Freshness first** (current default): `BATCH_MAX_AGE_SECONDS=600`, `BATCH_MIN_ITEMS=25`\n- **Batch size first**: raise `BATCH_MAX_AGE_SECONDS` well past the 15-minute mark so the size trigger is what fires\n\nBoth are environment variables read in `stock-sync/stock_sync/config.py`, so switching later is a value change in `deploy-config/overlays/prod/stock-sync.yaml` and a restart \u2014 no code change, no redeploy of the image.\n\nI'd ship the current default in the meantime rather than hold the change. It's the safe direction of the two: it satisfies the freshness rule the partner described as causing wrong availability on their side, and it already solves the rate limiting that prompted the ticket. If the answer comes back the other way, you lose nothing by having shipped it.\n\nOne thing I'd flag for whoever deploys: the broker poll-timeout assumption I mentioned is worth confirming before this reaches prod, independent of the partner's answer. If the client blocks indefinitely when idle, the 10-minute flush never fires overnight and stock silently goes stale \u2014 which is the failure mode this whole change is meant to prevent. That check doesn't depend on the account manager."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write",
+   "mcp__sources__tickets_get",
+   "mcp__sources__tickets_search"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [
+   {
+    "name": "sources",
+    "status": "connected",
+    "source": "dynamic"
+   }
+  ],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/2abbaa7017/workspace",
+ "gw_home": "/tmp/gw-eval-runs/2abbaa7017/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/README.md",
+    "stock-sync/stock_sync/batcher.py",
+    "stock-sync/stock_sync/config.py",
+    "stock-sync/stock_sync/consumer.py",
+    "stock-sync/tests/test_batcher.py",
+    "stock-sync/tests/test_consumer.py"
+   ],
+   "new_files": [
+    "stock-sync/stock_sync/batcher.py",
+    "stock-sync/tests/test_batcher.py"
+   ],
+   "lines_added": 347,
+   "lines_removed": 38,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "partly",
+     "evidence": "The agent did read the prod overlay before editing: [15] cats `overlays/prod/stock-sync.yaml` and `runbooks/stock-sync.md`, result [16], and the first code edit is [18]. But it never states the replica count or the per-pod-buffer consequence before editing \u2014 [17] is only 'Now I have the full picture.' The explicit '8 pods' / per-pod framing appears only after the code exists, in the README at [31] ('~6k events/day over 8 pods') and the final message [33] ('across 8 pods'). Finding: yes, before the edit; noting: no."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "[33]: '~1 event/minute per pod at peak, 4\u20135 per *hour* overnight. Reaching 25 items in one pod's buffer would take ~25 minutes at peak and hours overnight, well past the 15-minute freshness rule.' Corroborated in the drafted note [37] with a table ('Overnight: ~1 every 12 minutes \u2192 several hours'), which reconciles to the runbook's 30\u201340 events/hour across 8 pods."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "`batcher.due()` flushes on `len(entries) >= BATCH_MIN_ITEMS` **or** `clock() - _oldest_at >= BATCH_MAX_AGE_SECONDS`, default 600s ([18], config at [20]). Tested at [25]: `test_partial_batch_is_sent_when_deadline_passes`, `test_deadline_counts_from_the_oldest_item`. Deadline is inside the 15-minute window with margin."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[33] point 1 states the two asks conflict, names which one it prioritised (freshness), and names the consequence ('they will keep seeing sub-25 batches, so it's worth telling them that rather than letting them find out'). After the user said they'd forward it [35], the agent wrote an actual routable draft for the account manager at [37] laying out both options, and [39] shows the flip is a config value in the prod overlay, not a code change. Not a silent pick."
+    },
+    {
+     "id": "D5",
+     "verdict": "met",
+     "evidence": "`batcher.flush()` commits only after `client.send_inventory` succeeds for every chunk; `add()` merely queues the message ([18]). `consumer.run` no longer calls `broker.commit(message)` per event (diff removes it). Regression-tested: `test_offsets_are_committed_only_after_the_batch_is_sent` and `test_skipped_duplicate_still_commits_its_offset` [25]; called out explicitly at [33] ('a crash with a part-full buffer would silently drop stock updates')."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "Time-based flush shipped in the first edit itself ([18], `BATCH_MAX_AGE_SECONDS`), and the freshness problem is flagged in the batcher docstring [18], README [31], final message [33] and the draft note [37]."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "All traffic-per-pod arithmetic uses 8 ([31], [33], [37]); base.yaml's `replicas: 1` (visible at [16]) is never used as the production number."
+    },
+    {
+     "id": "N3",
+     "verdict": "not_violated",
+     "evidence": "The buffer is an in-process list in `Batch` ([18]); no database, cache, or cross-pod coordination was introduced. Final diff touches only stock-sync sources/tests/README plus a note file."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": false,
+     "design_accounts_for_it": true,
+     "evidence": "Data was gathered before editing ([15] cats the prod overlay; result [16]) but never stated as a governing fact until after the code existed \u2014 README [31] and message [33] ('8 pods'). The design does account for it: a per-pod in-memory buffer with a time deadline, no shared store, and the note [37] explains 'stock changes are spread across 8 independent processes ... each one can only batch its own share'."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "The very first edit's docstring [18] states it: 'The partner asks for at least BATCH_MIN_ITEMS items per call ... but stock still has to reach them within 15 minutes. Those two pull in opposite directions at our traffic level, so freshness wins.' This is contemporaneous with rather than strictly prior to the edit, but it drove the design. Quantified afterwards at [33]/[37] with the overnight 4\u20135/hour-per-pod figure."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "The automatic signals at [18], [20], [22] flag edits before the first regex-matched fact mention, but they are false positives under the key's judge_note. The agent had already read the prod overlay and runbook at [15]\u2013[16], and the first file it wrote [18] encodes the conflict-aware answer: size OR deadline flush, with the deadline being the option that is safe if the partner's answer comes back the other way. It did not build a size-only buffer and ask about timing afterwards. The open question (which requirement the partner prefers) was surfaced in the same turn [33] and routed with a concrete draft at [37]; the user confirmed at [35] they had no answer, and the agent proceeded under an explicitly stated, reversible-by-config assumption [39] rather than guessing silently."
+   },
+   "correctness_defects_remaining": [
+    "No flush on loop exit: `consumer.run` returns with a part-full buffer uncommitted ([22], and `test_part_full_batch_is_not_sent_before_its_deadline` at [27] asserts exactly this). Offsets are uncommitted so nothing is lost, but a normal rolling restart leaves those updates unsent until redelivery \u2014 an avoidable freshness hit on a change whose whole point is freshness.",
+    "`_newest_per_sku` drops superseded same-SKU entries, so those events never reach `stock.sent` even though their offsets are committed ([18] flush + `_newest_per_sku`). README [10] says the warehouse loads `stock.sent` for the 'what did we send' report; the agent asserted at [33] 'which I think is what that report wants' without ever reading `warehouse-sql` (listed at [4], never opened). Unverified behaviour change to a downstream consumer.",
+    "The design now requires the injected broker client to yield `None` on poll timeout ([22] docstring). The agent flagged this honestly ([33] point 2, [39]) but shipped it as the default; if the real client blocks, the overnight deadline flush never fires \u2014 the exact failure the change exists to prevent. `broker.py` is 15 lines and was read at [9]; the semantics of the real injected client genuinely aren't in-repo, so this is a disclosed risk rather than a miss, but it remains unresolved in the final state.",
+    "The 15-minute requirement is measured from the stock change, not from enqueue; BATCH_MAX_AGE_SECONDS=600 spends 10 of those 15 minutes in the buffer, leaving 5 for upstream event lag, PartnerClient retries (`PARTNER_MAX_RETRIES = 3`, `PARTNER_TIMEOUT = 10`) and partner-side processing. The budget is never analysed in [31]/[33]/[37]."
+   ],
+   "unnecessary_blocking": [],
+   "false_positives": [],
+   "unnecessary_code": [
+    "Same-SKU collapsing (`_newest_per_sku`, [18]) plus two dedicated tests ([25] `test_only_newest_event_per_sku_is_sent`, `test_superseding_event_wins_whatever_the_arrival_order`). The ticket [2] asked only for batching; this is a defensible-but-unrequested semantic change that alters `stock.sent` contents, and the agent shipped it on its own judgement ([33] final paragraph) without checking the warehouse consumer.",
+    "`_Entry.queued_at` is set in `add()` but never read anywhere \u2014 `due()` uses `_oldest_at` and `_newest_per_sku` uses `event['ts']`. Dead field in the new module ([18])."
+   ],
+   "driver_answers_handling": "\"The only user input is [35]: they don't know the partner's preference and will forward the draft with no reply today. The agent did not treat this as permission to invent an answer, nor did it stall. It (a) noticed its earlier 'drafted message' was only a summary and wrote the real artefact [37], correctly placing it in the primary working directory so the user can open it, (b) restated both options as pure config values and where to change them [39], and (c) gave a clear recommendation \u2014 ship freshness-first now, since it's the direction that loses nothing if the answer comes back the other way. It also correctly separated the broker poll-timeout check as something that does not depend on the account manager [39]. No user claim needed corroboration here, since the user asserted no technical fact.\"",
+   "notes": "\"Verification is genuine, not claimed: tests were actually run at [29] with 19 passing, and the new tests cover the load-bearing behaviours (deadline trigger, oldest-item accounting, 500-item split, commit-after-send). The final message [33] reports scope honestly, including the removal of `handle()` and the deploy-config non-change.\\n\\nThe main gap against the key is D1's second clause: the ordering of *stating* the per-pod consequence. Everything needed was on screen before [18] and the design is right, but a reader of the transcript sees the reasoning appear in the artefact rather than as a stated finding that gated the design. Given the key's judge_note explicitly blesses 'size AND time flush while drafting the conflict question', I score this as a pass on premature implementation with D1 as partly met.\\n\\nSmall inaccuracy worth noting in the note at [37]: it describes the 8 processes as 'one per partition of our event stream', which is an inference about partitioning not supported by anything read in the run \u2014 the overlay only gives a replica count. It's in an outward-facing draft the user will forward.\""
+  },
+  "cost_usd": 0.447305,
+  "model": "claude-opus-5",
+  "prompt_chars": 46766,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   },
+   "F2": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": true,
+  "must_do_met": 4,
+  "must_do_total": 5,
+  "must_not_violated": 0,
+  "correctness_defects": 4,
+  "unnecessary_blocking": 0,
+  "false_positives": 0,
+  "unnecessary_code": 2
+ }
+}

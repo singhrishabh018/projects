@@ -57,7 +57,14 @@ def use(i, name, inp, who=None):
         {"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}})
 def say(text):
     out({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}})
-if os.environ.get("STUB_LIMIT"):
+out({"type": "rate_limit_event", "rate_limit_info": {"status": "allowed", "unifiedWindows": {
+     "five_hour": {"utilization": float(os.environ.get("STUB_UTIL", "0.1"))}}}})
+_n = 0
+if os.environ.get("STUB_COUNTER"):
+    c = os.environ["STUB_COUNTER"]
+    _n = int(open(c).read()) + 1 if os.path.exists(c) else 1
+    open(c, "w").write(str(_n))
+if os.environ.get("STUB_LIMIT") or (os.environ.get("STUB_LIMIT_AT") and _n >= int(os.environ["STUB_LIMIT_AT"])):
     say("You've hit your session limit · resets 9am (UTC)")
     out({"type": "result", "subtype": "success", "is_error": True,
          "result": "You've hit your session limit · resets 9am (UTC)", "session_id": "stub-sid",
@@ -184,7 +191,7 @@ def main():
                              f"skill files read in order: {mw['skill_files_order']}"))
         results.append(check(mw["triage_mode_first"] == "full" and mw["triage_before_first_edit"],
                              "triage line found before first edit"))
-        results.append(check(mw["pre_edit_check_signal"] and not mb["pre_edit_check_signal"],
+        results.append(check(mw["pre_edit_check_in_chat"] and not mb["pre_edit_check_signal"],
                              "pre-edit check signal"))
         results.append(check(mw["facts"]["F1"]["mention_before_first_edit"], "fact mention before first edit"))
         results.append(check(mw["premature_signal"] and mw["premature_edits_signal"][0]["same_turn_ends_asking"],
@@ -224,9 +231,50 @@ def main():
         results.append(check(lr["aborted"] and not lr["valid"] and "judge" not in lr and len(done) < 4
                              and "usage limit" in p.stdout,
                              f"usage-limit cutoff: run aborted, not judged, batch stopped ({len(done)}/4 runs started)"))
+        results.append(check(not mw["limits"]["near_limit"] and mw["limits"]["max_utilization"] == {"five_hour": 0.1},
+                             f"limit signals recorded for a normal run: {mw['limits']['max_utilization']}"))
         summ = open(os.path.join(out_dir, "b3", "summary.md")).read()
         results.append(check("ABORTED DUMMY-OK" in summ and "## DUMMY-OK" not in summ,
                              "aborted runs listed and excluded from tables"))
+
+        # resumable batch: limit hits on the 3rd agent invocation (slot 2 of 4), then resume
+        counter = os.path.join(tmp, "counter")
+        env = dict(os.environ, STUB_COUNTER=counter, STUB_LIMIT_AT="3")
+        p = subprocess.run(base + ["--batch", "b4", "--n", "2", "--no-judge"], capture_output=True, text=True, env=env)
+        b4 = os.path.join(out_dir, "b4")
+        st = json.load(open(os.path.join(b4, "state.json")))["slots"]
+        results.append(check(st["DUMMY-OK/with-1"]["status"] == "done"
+                             and st["DUMMY-OK/baseline-1"]["status"] == "aborted"
+                             and st["DUMMY-OK/with-2"]["status"] == "pending"
+                             and "Resume with" in p.stdout,
+                             f"state.json after a mid-batch limit: { {k: v['status'] for k, v in st.items()} }"))
+        first = json.load(open(os.path.join(b4, "DUMMY-OK", "with-1", "run.json")))
+        mtime = os.path.getmtime(os.path.join(b4, "DUMMY-OK", "with-1", "run.json"))
+        env = dict(os.environ, STUB_UTIL="0.9")
+        p = subprocess.run([sys.executable, GW, "run", "--resume-batch", b4, "--claude-bin", stub,
+                            "--runs-root", runs_root, "--no-judge"], capture_output=True, text=True, env=env)
+        st = json.load(open(os.path.join(b4, "state.json")))["slots"]
+        again = json.load(open(os.path.join(b4, "DUMMY-OK", "with-1", "run.json")))
+        results.append(check(all(v["status"] == "done" for v in st.values()) and len(st) == 4
+                             and "1/4 runs already done, 3 to run" in p.stdout,
+                             "resume runs only the missing slots"))
+        results.append(check(again["run_id"] == first["run_id"]
+                             and os.path.getmtime(os.path.join(b4, "DUMMY-OK", "with-1", "run.json")) == mtime,
+                             "completed run not rebuilt on resume"))
+        results.append(check(os.path.exists(os.path.join(b4, "DUMMY-OK", "baseline-1", "attempts", "1", "run.json"))
+                             and st["DUMMY-OK/baseline-1"]["attempts"] == 2,
+                             "aborted attempt kept under attempts/1, slot re-run"))
+        b1r = json.load(open(os.path.join(b4, "DUMMY-OK", "baseline-1", "run.json")))
+        summ = open(os.path.join(b4, "summary.md")).read()
+        results.append(check(b1r["metrics"]["limits"]["near_limit"] and "| near a usage limit (runs) |" in summ
+                             and "**yes**" in summ and "five_hour 0.90" in summ,
+                             "near-limit run flagged (utilization 0.9 >= 0.8) and shown per run"))
+        p = subprocess.run([sys.executable, GW, "run", "--resume-batch", b4, "--claude-bin", stub,
+                            "--runs-root", runs_root, "--no-judge"], capture_output=True, text=True)
+        results.append(check("4/4 runs already done, 0 to run" in p.stdout, "resuming a finished batch is a no-op"))
+        p = subprocess.run(base + ["--batch", "b4"], capture_output=True, text=True)
+        results.append(check(p.returncode != 0 and "--resume-batch" in (p.stdout + p.stderr),
+                             "starting a batch over an existing one is refused"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"\n{sum(results)}/{len(results)} checks passed")

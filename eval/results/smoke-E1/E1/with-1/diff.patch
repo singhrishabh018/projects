@@ -1,0 +1,541 @@
+
+
+diff --git a/stock-sync/README.md b/stock-sync/README.md
+index 27d50a1..dd81f6e 100644
+--- a/stock-sync/README.md
++++ b/stock-sync/README.md
+@@ -1,8 +1,25 @@
+ # stock-sync
+ 
+ Consumes `stock.changed` events from the message broker and pushes stock levels to the
+-marketplace partner's inventory API. After each successful send it publishes the sent item
+-to `stock.sent` (the warehouse loads that topic for the "what did we send" report).
++marketplace partner's inventory API in batches. After each successful send it publishes each
++sent item to `stock.sent` (the warehouse loads that topic for the "what did we send" report).
++
++## Batching
++
++A batch is sent when it reaches `BATCH_TARGET_ITEMS` (25) or when its oldest item reaches
++`BATCH_MAX_AGE_SECONDS` (600), whichever comes first, and never exceeds `BATCH_MAX_ITEMS`
++(500). Nothing is committed to the broker or recorded in the sent-log until the partner call
++succeeds, so a crash with a full buffer means redelivery, not lost stock.
++
++The partner asked for at least 25 items per call *and* stock within 15 minutes of a change.
++At current volume those conflict: prod runs one pod per partition, and a pod sees roughly 13
++events in 15 minutes at peak and ~1 overnight, so most batches leave on the deadline well
++short of 25. The freshness deadline wins; see the tracker note (ticket 131).
++
++Batching needs a broker client that hands control back while idle
++(`poll(topic, group=..., timeout=...)` returning `None` on timeout). If the injected client
++has no `poll`, the service logs an error and sends unbatched rather than holding stock past
++the deadline.
+ 
+ Run tests: `python -m unittest discover -s tests`
+ 
+diff --git a/stock-sync/stock_sync/batcher.py b/stock-sync/stock_sync/batcher.py
+new file mode 100644
+index 0000000..fb4c7df
+--- /dev/null
++++ b/stock-sync/stock_sync/batcher.py
+@@ -0,0 +1,83 @@
++"""Buffers inventory items so the partner gets one call per batch instead of per event.
++
++Flushes on whichever comes first: the buffer reaches the target size, or its oldest item
++reaches the age deadline. The partner asked for >= 25 items per call *and* stock within 15
++minutes of a change; at our volume those cannot both hold (one pod per partition sees
++roughly 13 events in 15 minutes at peak), so the deadline wins and the size target is
++best-effort. See docs/partner-api.md and the tracker note.
++
++Nothing is committed or marked as sent until the partner call has succeeded: a crash with a
++full buffer must leave the events re-deliverable, not silently dropped.
++"""
++import logging
++import time
++
++from . import config
++
++log = logging.getLogger(__name__)
++
++
++class Batch:
++    def __init__(self, client, sent_log, broker, target_size=None, max_size=None,
++                 max_age=None, clock=time.monotonic):
++        self._client = client
++        self._sent_log = sent_log
++        self._broker = broker
++        self.target_size = target_size or config.BATCH_TARGET_ITEMS
++        self.max_size = max_size or config.BATCH_MAX_ITEMS
++        self.max_age = max_age if max_age is not None else config.BATCH_MAX_AGE_SECONDS
++        self._clock = clock
++        self._pending = []          # (event_id, item, message)
++        self._oldest_at = None
++
++    def __len__(self):
++        return len(self._pending)
++
++    def already_sent(self, event_id):
++        return self._sent_log.seen(event_id)
++
++    def commit(self, message):
++        """Commit a message that will never be buffered (an already-sent redelivery)."""
++        self._broker.commit(message)
++
++    def add(self, event_id, item, message=None):
++        """Buffer one item, flushing first if this one would overflow the hard cap."""
++        if any(event_id == pending_id for pending_id, _, _ in self._pending):
++            log.info("skipping duplicate event %s already buffered", event_id)
++            return
++        if len(self._pending) >= self.max_size:
++            self.flush()
++        if not self._pending:
++            self._oldest_at = self._clock()
++        self._pending.append((event_id, item, message))
++        if len(self._pending) >= min(self.target_size, self.max_size):
++            self.flush()
++
++    def age(self):
++        return 0 if self._oldest_at is None else self._clock() - self._oldest_at
++
++    def due(self):
++        return bool(self._pending) and self.age() >= self.max_age
++
++    def flush_if_due(self):
++        if self.due():
++            self.flush()
++
++    def flush(self):
++        """Send the buffer as one call, then mark, publish and commit what it contained.
++
++        On failure the buffer is kept and nothing is marked or committed, so the events are
++        still owned by this pod or, after a restart, re-delivered by the broker.
++        """
++        if not self._pending:
++            return
++        batch = self._pending
++        self._client.send_inventory([item for _, item, _ in batch])
++        self._pending = []
++        self._oldest_at = None
++        for event_id, item, message in batch:
++            self._sent_log.mark(event_id)
++            self._broker.publish("stock.sent", item)
++            if message is not None:
++                self._broker.commit(message)
++        log.info("sent %d stock updates to the partner in one call", len(batch))
+diff --git a/stock-sync/stock_sync/broker.py b/stock-sync/stock_sync/broker.py
+index c6ef35b..f3cc756 100644
+--- a/stock-sync/stock_sync/broker.py
++++ b/stock-sync/stock_sync/broker.py
+@@ -8,6 +8,19 @@ class Broker:
+     def subscribe(self, topic, group):
+         return self._client.subscribe(topic, group=group)
+ 
++    def supports_idle_poll(self):
++        """Whether the injected client can hand control back while no message is waiting.
++
++        Batching needs this: a buffer holding a few items overnight must still be flushed
++        when the age deadline passes, and `subscribe` only yields when something arrives.
++        Expected shape: `client.poll(topic, group=..., timeout=...)` returning a message,
++        or None once `timeout` seconds pass with nothing to read.
++        """
++        return callable(getattr(self._client, "poll", None))
++
++    def poll(self, topic, group, timeout):
++        return self._client.poll(topic, group=group, timeout=timeout)
++
+     def commit(self, message):
+         self._client.commit(message)
+ 
+diff --git a/stock-sync/stock_sync/config.py b/stock-sync/stock_sync/config.py
+index 7d280bd..5324a7c 100644
+--- a/stock-sync/stock_sync/config.py
++++ b/stock-sync/stock_sync/config.py
+@@ -5,6 +5,15 @@ PARTNER_TOKEN = os.environ.get("PARTNER_TOKEN", "")
+ PARTNER_TIMEOUT = 10  # seconds
+ PARTNER_MAX_RETRIES = 3
+ 
++# Batching for the partner inventory API. The partner asks for 25-500 items per call and
++# stock within 15 minutes of a change; the deadline wins when the two conflict, so
++# BATCH_MAX_AGE_SECONDS stays comfortably under 15 minutes (retries and the call itself
++# happen inside that margin).
++BATCH_TARGET_ITEMS = int(os.environ.get("BATCH_TARGET_ITEMS", "25"))
++BATCH_MAX_ITEMS = int(os.environ.get("BATCH_MAX_ITEMS", "500"))
++BATCH_MAX_AGE_SECONDS = int(os.environ.get("BATCH_MAX_AGE_SECONDS", "600"))
++BATCH_POLL_SECONDS = int(os.environ.get("BATCH_POLL_SECONDS", "5"))
++
+ BROKER_URL = os.environ.get("BROKER_URL", "broker://localhost:9092")
+ CONSUMER_GROUP = "stock-sync"
+ SENT_LOG_PATH = os.environ.get("SENT_LOG_PATH", "/var/lib/stock-sync/sent.db")
+diff --git a/stock-sync/stock_sync/consumer.py b/stock-sync/stock_sync/consumer.py
+index f47ba39..f99df18 100644
+--- a/stock-sync/stock_sync/consumer.py
++++ b/stock-sync/stock_sync/consumer.py
+@@ -1,7 +1,8 @@
+-"""Main loop: one stock.changed event in, one partner inventory call out."""
++"""Main loop: stock.changed events in, batched partner inventory calls out."""
+ import logging
+ 
+ from . import brands, config, payload
++from .batcher import Batch
+ from .broker import Broker
+ from .dedup import SentLog
+ from .partner_client import PartnerClient
+@@ -9,21 +10,35 @@ from .partner_client import PartnerClient
+ log = logging.getLogger(__name__)
+ 
+ 
+-def handle(event, client, sent_log, broker):
+-    if sent_log.seen(event["event_id"]):
++def handle(event, batch, message=None):
++    if batch.already_sent(event["event_id"]):
+         log.info("skipping already-sent event %s", event["event_id"])
++        if message is not None:
++            batch.commit(message)
+         return
+-    item = payload.build(event)
+-    client.send_inventory([item])
+-    sent_log.mark(event["event_id"])
+-    broker.publish("stock.sent", item)
+-    log.info("Stock update recieved and sent for %s (%s)", event["sku"], brands.name(event["brand"]))
++    batch.add(event["event_id"], payload.build(event), message)
++    log.info("Stock update recieved for %s (%s)", event["sku"], brands.name(event["brand"]))
+ 
+ 
+ def run(broker_client):
+     broker = Broker(broker_client)
+     client = PartnerClient()
+     sent_log = SentLog(config.SENT_LOG_PATH)
+-    for message in broker.subscribe("stock.changed", group=config.CONSUMER_GROUP):
+-        handle(message.value, client, sent_log, broker)
+-        broker.commit(message)
++
++    if not broker.supports_idle_poll():
++        # Without an idle wake-up the age deadline could never fire, and a part-full buffer
++        # would sit past the partner's 15-minute freshness limit - worse than not batching.
++        log.error("broker client has no poll(timeout=...); sending unbatched, one item per "
++                  "call, until it does")
++        batch = Batch(client, sent_log, broker, target_size=1)
++        for message in broker.subscribe("stock.changed", group=config.CONSUMER_GROUP):
++            handle(message.value, batch, message)
++        return
++
++    batch = Batch(client, sent_log, broker)
++    while True:
++        message = broker.poll("stock.changed", group=config.CONSUMER_GROUP,
++                              timeout=config.BATCH_POLL_SECONDS)
++        if message is not None:
++            handle(message.value, batch, message)
++        batch.flush_if_due()
+diff --git a/stock-sync/tests/test_batcher.py b/stock-sync/tests/test_batcher.py
+new file mode 100644
+index 0000000..c1462c7
+--- /dev/null
++++ b/stock-sync/tests/test_batcher.py
+@@ -0,0 +1,178 @@
++import os
++import tempfile
++import unittest
++
++from stock_sync import payload
++from stock_sync.batcher import Batch
++from stock_sync.dedup import SentLog
++from stock_sync.partner_client import PartnerClient, PartnerError
++from tests.fake_partner import FakePartner
++
++
++def event(n):
++    return {"event_id": f"e{n}", "sku": f"SKU-{n}", "brand": "b1", "location": "W12",
++            "on_hand": 7, "reserved": 2, "ts": 1767225600000}
++
++
++class FakeBroker:
++    def __init__(self):
++        self.published = []
++        self.committed = []
++
++    def publish(self, topic, value):
++        self.published.append((topic, value))
++
++    def commit(self, message):
++        self.committed.append(message)
++
++
++class FakeClock:
++    def __init__(self):
++        self.t = 0.0
++
++    def __call__(self):
++        return self.t
++
++    def advance(self, seconds):
++        self.t += seconds
++
++
++class BatchTest(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.mkdtemp()
++        self.partner = FakePartner()
++        self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
++        self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
++        self.broker = FakeBroker()
++        self.clock = FakeClock()
++
++    def batch(self, **kw):
++        kw.setdefault("clock", self.clock)
++        return Batch(self.client, self.sent_log, self.broker, **kw)
++
++    def add(self, batch, n):
++        e = event(n)
++        batch.add(e["event_id"], payload.build(e), message=f"m{n}")
++
++    def items_of(self, request_index):
++        return self.partner.requests[request_index]["body"]["items"]
++
++    # R1/R2 - batches of the target size go out as a single call
++    def test_target_size_events_are_one_call(self):
++        batch = self.batch(target_size=25)
++        for n in range(25):
++            self.add(batch, n)
++        self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.items_of(0)), 25)
++
++    def test_nothing_is_sent_before_the_target_is_reached(self):
++        batch = self.batch(target_size=25)
++        for n in range(24):
++            self.add(batch, n)
++        self.assertEqual(self.partner.requests, [])
++        self.assertEqual(len(batch), 24)
++
++    # R3 - never more than the partner's per-call maximum
++    def test_never_exceeds_max_items_per_call(self):
++        batch = self.batch(target_size=10_000, max_size=500)
++        for n in range(501):
++            self.add(batch, n)
++        self.assertEqual(len(self.items_of(0)), 500)
++        self.assertEqual(len(batch), 1)
++
++    # R4 - a part-full batch goes out when the age deadline passes
++    def test_partial_batch_flushes_on_age_deadline(self):
++        batch = self.batch(target_size=25, max_age=600)
++        for n in range(3):
++            self.add(batch, n)
++        self.clock.advance(599)
++        batch.flush_if_due()
++        self.assertEqual(self.partner.requests, [], "flushed before the deadline")
++        self.clock.advance(1)
++        batch.flush_if_due()
++        self.assertEqual(len(self.items_of(0)), 3)
++
++    def test_age_is_measured_from_the_oldest_item(self):
++        batch = self.batch(target_size=25, max_age=600)
++        self.add(batch, 1)
++        self.clock.advance(590)
++        self.add(batch, 2)          # a later arrival must not postpone the deadline
++        self.clock.advance(10)
++        batch.flush_if_due()
++        self.assertEqual(len(self.items_of(0)), 2)
++
++    def test_deadline_restarts_after_a_flush(self):
++        batch = self.batch(target_size=25, max_age=600)
++        self.add(batch, 1)
++        self.clock.advance(600)
++        batch.flush_if_due()
++        self.add(batch, 2)
++        self.clock.advance(599)
++        batch.flush_if_due()
++        self.assertEqual(len(self.partner.requests), 1)
++
++    def test_empty_batch_never_calls_the_partner(self):
++        batch = self.batch(target_size=25, max_age=600)
++        self.clock.advance(6000)
++        batch.flush_if_due()
++        batch.flush()
++        self.assertEqual(self.partner.requests, [])
++
++    # R5 - offsets, dedup and stock.sent
++    def test_offsets_are_not_committed_until_the_batch_is_sent(self):
++        batch = self.batch(target_size=25)
++        for n in range(5):
++            self.add(batch, n)
++        self.assertEqual(self.broker.committed, [], "committed before the partner call")
++        self.assertFalse(self.sent_log.seen("e0"), "marked sent before the partner call")
++        self.assertEqual(self.broker.published, [])
++        batch.flush()
++        self.assertEqual(self.broker.committed, ["m0", "m1", "m2", "m3", "m4"])
++        self.assertTrue(self.sent_log.seen("e0"))
++
++    def test_failed_flush_keeps_the_buffer_and_commits_nothing(self):
++        def boom(req, timeout=None):
++            raise OSError("partner down")
++
++        batch = Batch(self.client, self.sent_log, self.broker, target_size=25,
++                      clock=self.clock)
++        self.client._open = boom
++        for n in range(3):
++            self.add(batch, n)
++        with self.assertRaises(Exception):
++            batch.flush()
++        self.assertEqual(len(batch), 3, "buffer dropped after a failed send")
++        self.assertEqual(self.broker.committed, [])
++        self.assertFalse(self.sent_log.seen("e0"))
++
++    def test_duplicate_event_in_one_batch_is_sent_once(self):
++        batch = self.batch(target_size=25)
++        self.add(batch, 1)
++        self.add(batch, 1)
++        batch.flush()
++        self.assertEqual(len(self.items_of(0)), 1)
++
++    def test_publishes_one_stock_sent_message_per_item(self):
++        batch = self.batch(target_size=3)
++        for n in range(3):
++            self.add(batch, n)
++        self.assertEqual([topic for topic, _ in self.broker.published], ["stock.sent"] * 3)
++        # the warehouse load reads these fields off each message (load_stock_sent.sql)
++        for _, value in self.broker.published:
++            self.assertEqual(set(value), {"sku", "qty", "updated_at"})
++
++    # partner contract: assert on what the other side accepts, not on our status code
++    def test_batch_body_shape_matches_the_partner_api(self):
++        batch = self.batch(target_size=2)
++        for n in range(2):
++            self.add(batch, n)
++        body = self.partner.requests[0]["body"]
++        self.assertEqual(list(body), ["items"])
++        self.assertTrue(self.partner.requests[0]["url"].endswith("/v2/inventory"))
++        for item in body["items"]:
++            self.assertEqual(set(item), {"sku", "qty", "updated_at"})
++            self.assertIsInstance(item["qty"], int)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/stock-sync/tests/test_consumer.py b/stock-sync/tests/test_consumer.py
+index 8447751..af422b3 100644
+--- a/stock-sync/tests/test_consumer.py
++++ b/stock-sync/tests/test_consumer.py
+@@ -2,7 +2,9 @@ import os
+ import tempfile
+ import unittest
+ 
+-from stock_sync import brands, consumer
++from stock_sync import brands, config, consumer
++from stock_sync.batcher import Batch
++from stock_sync.broker import Broker
+ from stock_sync.dedup import SentLog
+ from stock_sync.partner_client import PartnerClient
+ from tests.fake_partner import FakePartner
+@@ -14,10 +16,14 @@ EVENT = {"event_id": "e1", "sku": "SKU-1", "brand": "b1", "location": "W12",
+ class FakeBroker:
+     def __init__(self):
+         self.published = []
++        self.committed = []
+ 
+     def publish(self, topic, value):
+         self.published.append((topic, value))
+ 
++    def commit(self, message):
++        self.committed.append(message)
++
+ 
+ class ConsumerTest(unittest.TestCase):
+     def setUp(self):
+@@ -30,21 +36,92 @@ class ConsumerTest(unittest.TestCase):
+         self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
+         self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
+         self.broker = FakeBroker()
++        self.batch = Batch(self.client, self.sent_log, self.broker, target_size=3, max_age=600)
++
++    def test_event_is_buffered_not_sent_immediately(self):
++        consumer.handle(EVENT, self.batch)
++        self.assertEqual(self.partner.requests, [])
++        self.assertEqual(len(self.batch), 1)
+ 
+-    def test_sends_one_item_per_event(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
++    def test_buffered_events_are_sent_as_one_call(self):
++        for n in range(3):
++            consumer.handle(dict(EVENT, event_id=f"e{n}", sku=f"SKU-{n}"), self.batch)
+         self.assertEqual(len(self.partner.requests), 1)
+-        self.assertEqual(self.partner.requests[0]["body"]["items"][0]["sku"], "SKU-1")
++        skus = [i["sku"] for i in self.partner.requests[0]["body"]["items"]]
++        self.assertEqual(skus, ["SKU-0", "SKU-1", "SKU-2"])
+ 
+     def test_redelivered_event_not_sent_twice(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
++        consumer.handle(EVENT, self.batch)
++        self.batch.flush()
++        consumer.handle(EVENT, self.batch, message="m1")
+         self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.batch), 0)
++
++    def test_skipped_redelivery_still_commits_its_offset(self):
++        consumer.handle(EVENT, self.batch)
++        self.batch.flush()
++        consumer.handle(EVENT, self.batch, message="m-again")
++        self.assertIn("m-again", self.broker.committed)
+ 
+     def test_publishes_sent_item(self):
+-        consumer.handle(EVENT, self.client, self.sent_log, self.broker)
++        consumer.handle(EVENT, self.batch)
++        self.batch.flush()
+         self.assertEqual(self.broker.published[0][0], "stock.sent")
+ 
+ 
++class QuietPodScenarioTest(unittest.TestCase):
++    """Overnight a pod sees ~4 events/hour, far below the partner's 25-item minimum.
++
++    The batch must still leave on the age deadline rather than wait for 25 items.
++    """
++
++    def setUp(self):
++        self.tmp = tempfile.mkdtemp()
++        self.partner = FakePartner()
++        self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
++        self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
++        self.broker = FakeBroker()
++
++    def test_two_overnight_events_reach_the_partner_within_fifteen_minutes(self):
++        now = [0.0]
++        batch = Batch(self.client, self.sent_log, self.broker, clock=lambda: now[0])
++        self.assertEqual(batch.target_size, 25)
++        self.assertLess(batch.max_age, 15 * 60, "deadline must sit inside the 15-minute promise")
++
++        for n, at in enumerate([0.0, 400.0]):          # two events in the first 7 minutes
++            now[0] = at
++            batch.add(f"e{n}", {"sku": f"SKU-{n}", "qty": 1, "updated_at": "2026-01-01T00:00:00+00:00"})
++            batch.flush_if_due()
++        self.assertEqual(self.partner.requests, [])
++
++        now[0] = 15 * 60                                # 15 minutes after the first event
++        batch.flush_if_due()
++        self.assertEqual(len(self.partner.requests), 1)
++        self.assertEqual(len(self.partner.requests[0]["body"]["items"]), 2)
++
++
++class RunModeTest(unittest.TestCase):
++    """Without an idle poll the age deadline can never fire, so run() must not batch."""
++
++    class NoPollClient:
++        def subscribe(self, topic, group):
++            return iter([])
++
++    class PollingClient(NoPollClient):
++        def poll(self, topic, group=None, timeout=None):
++            return None
++
++    def test_idle_poll_support_is_detected(self):
++        self.assertFalse(Broker(self.NoPollClient()).supports_idle_poll())
++        self.assertTrue(Broker(self.PollingClient()).supports_idle_poll())
++
++    def test_falls_back_to_unbatched_when_the_client_cannot_poll(self):
++        tmp = tempfile.mkdtemp()
++        config.SENT_LOG_PATH = os.path.join(tmp, "sent.db")
++        with self.assertLogs("stock_sync.consumer", level="ERROR") as logs:
++            consumer.run(self.NoPollClient())
++        self.assertIn("unbatched", "".join(logs.output))
++
++
+ if __name__ == "__main__":
+     unittest.main()
+

@@ -193,9 +193,18 @@ def compute(ctx):
     lo = m["skill_load_index"]
     window = [e for e in main_texts if (lo is None or e["i"] > lo)
               and (first_edit is None or e["i"] < first_edit)]
-    m["pre_edit_check_signal"] = (first_edit is not None and lo is not None and any(
+    # SKILL.md: "Before your first file edit: name the open unknowns that affect this edit, and
+    # which part of the work they block." Reported separately for the chat (what the user sees)
+    # and for store notes written before the first edit (e.g. an affected-work map).
+    m["pre_edit_check_in_chat"] = (first_edit is not None and lo is not None and any(
         re.search(r"unknown", e["text"], re.I) and re.search(r"block|affect", e["text"], re.I)
         for e in window))
+    m["pre_edit_check_in_store"] = (first_edit is not None and lo is not None and any(
+        x["target"] == "store" and x["i"] < first_edit and x["content"]
+        and re.search(r"affected.work|\bunknowns?\b|\bU\d+\b", x["content"], re.I)
+        and re.search(r"block|affect|depends", x["content"], re.I)
+        for x in edits))
+    m["pre_edit_check_signal"] = m["pre_edit_check_in_chat"] or m["pre_edit_check_in_store"]
 
     # --- fact mentions: first-edit vs first-mention (named proxy for "caught before code")
     surfaced = [(e["i"], e["text"]) for e in tl if e["kind"] == "text" and e["who"] == "main"]
@@ -288,7 +297,53 @@ def compute(ctx):
 
     # --- answer-key checks
     m["checks"] = run_checks(ctx, tl, results)
+    m["limits"] = limit_signals(ctx.get("raw_invocations") or [], tl,
+                                ctx.get("near_limit_threshold", 0.8))
     return m
+
+
+# The CLI's own limit/throttle messages (not prose: the cases themselves talk about rate limits).
+LIMIT_TEXT_RE = re.compile(r"hit your (\w+ )?limit|limit (will )?resets?|API Error: ?(429|529)|"
+                           r"overloaded_error|rate_limit_error", re.I)
+
+
+def limit_signals(raw_invocations, tl, threshold):
+    """Usage-limit / throttling evidence seen anywhere in the run's stream, even if it
+    completed. Utilization is account-wide (it includes parallel runs and other sessions),
+    so it says how close the account was to a limit while this run ran, not what it used."""
+    util = {}
+    statuses, types, other = set(), set(), []
+    events = 0
+    for recs in raw_invocations:
+        for rec in recs:
+            ev = rec["e"]
+            typ, sub = ev.get("type"), ev.get("subtype") or ""
+            if typ == "rate_limit_event":
+                events += 1
+                info = ev.get("rate_limit_info") or {}
+                statuses.add(info.get("status"))
+                if info.get("isUsingOverage"):
+                    statuses.add("using_overage")
+                if info.get("rateLimitType"):
+                    types.add(info["rateLimitType"])
+                for win, w in (info.get("unifiedWindows") or {}).items():
+                    u = w.get("utilization")
+                    if isinstance(u, (int, float)):
+                        util[win] = max(util.get(win, 0), u)
+            elif typ == "system" and re.search(r"retry|error|limit|overload", sub, re.I):
+                other.append(sub)
+            elif typ == "raw" and LIMIT_TEXT_RE.search(ev.get("text", "")):
+                other.append("raw:" + ev["text"][:80])
+    texts = [e["text"][:160] for e in tl
+             if e["kind"] in ("text", "result") and e.get("who") == "main" and e.get("text")
+             and len(e["text"]) < 400 and LIMIT_TEXT_RE.search(e["text"])]
+    not_allowed = sorted(s for s in statuses if s and s != "allowed")
+    near = (bool(not_allowed) or bool(texts) or bool(other)
+            or any(u >= threshold for u in util.values()))
+    return {"near_limit": near, "max_utilization": util, "non_allowed_statuses": not_allowed,
+            "limit_types": sorted(types), "rate_limit_events": events,
+            "limit_messages": texts[:5], "retry_or_error_events": other[:10],
+            "threshold": threshold}
 
 
 def _diff_all(ctx):

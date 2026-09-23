@@ -14,7 +14,7 @@
  ],
  "cases_dir": "/home/user/projects/eval/cases",
  "skill_dir": "/home/user/projects/skill/groundwork",
- "skill_commit": "5d92fc5",
+ "skill_commit": "8741e39",
  "claude_version": "2.1.280 (Claude Code)",
  "ambient_claude_dir": [
   ".last-cleanup",
@@ -32,5 +32,7 @@
   "uploads",
   "user-prompt-submit-reply-reminder.py"
  ],
- "started": "2026-09-23T05:12:13"
+ "started": "2026-09-23T14:06:40",
+ "finished": "2026-09-23T14:14:12",
+ "spent_usd": 6.51
 }

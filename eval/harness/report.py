@@ -69,12 +69,16 @@ def write(batch_dir):
     by = summarize(runs_ok)
 
     rows = [("n", lambda rs: str(len(rs))),
+            ("near a usage limit (runs)", lambda rs: _frac([_lim(r).get("near_limit") for r in rs])),
             ("skill loaded", lambda rs: _frac([r["metrics"]["skill_loaded"] for r in rs])),
             ("triage line before 1st edit", lambda rs: _frac([r["metrics"]["triage_before_first_edit"] for r in rs])),
             ("triage mode (first)", lambda rs: ", ".join(f"{k}×{v}" for k, v in Counter(
                 r["metrics"]["triage_mode_first"] or "none" for r in rs).items())),
-            ("pre-edit check signal", lambda rs: _frac([r["metrics"]["pre_edit_check_signal"] for r in rs
-                                                        if r["metrics"]["first_code_edit_index"] is not None])),
+            ("pre-edit check: in chat", lambda rs: _frac([r["metrics"].get("pre_edit_check_in_chat") for r in rs
+                                                          if r["metrics"]["first_code_edit_index"] is not None])),
+            ("pre-edit check: in store notes only", lambda rs: _frac([
+                r["metrics"].get("pre_edit_check_in_store") and not r["metrics"].get("pre_edit_check_in_chat")
+                for r in rs if r["metrics"]["first_code_edit_index"] is not None])),
             ("phase files read (runs with ≥1)", lambda rs: _frac([bool(r["metrics"]["phase_files_read"]) for r in rs])),
             ("caught before code (proxy ∧ judge)", lambda rs: _caught(rs)),
             ("  proxy only: mention before 1st edit", lambda rs: _caught(rs, proxy=True)),
@@ -124,6 +128,30 @@ def write(batch_dir):
             for r in arms["with"]:
                 out.append(f"- run {r['index']}: " + (" → ".join(r["metrics"]["skill_files_order"]) or "(skill not loaded)"))
 
+    # per-run table: near-limit runs stay visible instead of being averaged in
+    out += ["", "## Runs", "",
+            "Near limit = a non-`allowed` rate-limit status, a limit/throttle message, a retry/error "
+            "event, or account utilization at or above the threshold during the run. Utilization is "
+            "account-wide (parallel runs and other sessions count).", "",
+            "| case | run | near limit | max utilization | agent cost | turns | driver turns | "
+            "caught before code | premature impl. | skill files read |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
+    for r in sorted(runs, key=lambda r: (r["case"], r["arm"], r["index"])):
+        lim = _lim(r)
+        util = ", ".join(f"{k} {v:.2f}" for k, v in sorted((lim.get("max_utilization") or {}).items())) or "–"
+        flag = ("**yes**" + (f" ({', '.join(lim.get('non_allowed_statuses') or [])})"
+                             if lim.get("non_allowed_statuses") else "")) if lim.get("near_limit") else (
+            "no" if lim else "not recorded")
+        status = "" if r["audit"]["valid"] and not r.get("aborted") else (
+            " (INVALID)" if not r["audit"]["valid"] else " (ABORTED)")
+        facts = (r.get("final") or {}).get("facts") or {}
+        caught = "–" if not facts else f"{sum(v['caught_before_code'] for v in facts.values())}/{len(facts)}"
+        m = r["metrics"]
+        out.append(f"| {r['case']} | {r['arm']}-{r['index']}{status} | {flag} | {util} | "
+                   f"${m['agent_cost_usd']:.2f} | {m['agent_turns']} | {m['driver_turns']} | {caught} | "
+                   f"{(r.get('final') or {}).get('premature_implementation') or '–'} | "
+                   f"{' → '.join(m['skill_files_order']) or '–'} |")
+
     # cross-case file-read table
     withs = [r for r in runs_ok if r["arm"] == "with"]
     if withs:
@@ -139,6 +167,10 @@ def write(batch_dir):
     with open(os.path.join(batch_dir, "summary.json"), "w") as f:
         json.dump(summary, f, indent=1)
     return text
+
+
+def _lim(r):
+    return r["metrics"].get("limits") or {}
 
 
 def _caught(rs, proxy=False):

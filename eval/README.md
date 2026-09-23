@@ -28,7 +28,7 @@ eval/
 
 ```bash
 cd eval/harness
-python3 selftest.py                       # offline, free: checks the whole pipeline (19 checks)
+python3 selftest.py                       # offline, free: checks the whole pipeline (29 checks)
 python3 gw_eval.py validate               # visible cases
 python3 gw_eval.py validate --cases-dir /path/to/heldout   # external cases: format check only
 
@@ -44,6 +44,9 @@ python3 gw_eval.py run --cases-dir /path/to/heldout --n 3 --jobs 4 --batch heldo
 # generalization check: E1 on one other model, 2 runs per arm
 python3 gw_eval.py run --case E1 --n 2 --model claude-sonnet-5 --batch E1-sonnet5
 
+# a usage limit hit mid-batch: continue later, running only what isn't done
+python3 gw_eval.py run --resume-batch results/visible-n3 --jobs 4
+
 python3 gw_eval.py report results/<batch>      # rebuild summary.md
 python3 gw_eval.py rescore results/<batch>     # re-run only the judge (e.g. after a key fix)
 ```
@@ -53,7 +56,24 @@ Useful `run` options: `--arm with|baseline|both`, `--case ID` (repeatable), `--m
 (default `claude-sonnet-5`, used only by LLM-mode drivers), `--judge-model` (default
 `claude-opus-5`), `--max-run-usd` (default 6), `--max-total-usd` (default 150; the batch stops
 scheduling new runs once reached), `--jobs`, `--keep-runs` (keep workspaces for debugging),
-`--no-judge`, `--runs-root` (default `/tmp/gw-eval-runs`, or `$GW_EVAL_RUNS`).
+`--no-judge`, `--runs-root` (default `/tmp/gw-eval-runs`, or `$GW_EVAL_RUNS`),
+`--near-limit` (default 0.8, see below), `--resume-batch DIR`, `--allow-skill-change`.
+
+### Resuming a batch
+
+`<batch>/state.json` records every slot (`<case>/<arm>-<i>`) as `pending`, `running`, `done`,
+`aborted` or `failed`, with attempts, cost and reason. A slot is **done** only if its
+`run.json` exists and the run wasn't aborted; the files are the source of truth.
+
+`run --resume-batch <dir>` reuses the batch's recorded settings (cases, arms, n, models,
+effort, skill folder), skips done slots without touching them, moves the files of any other
+slot to `<slot>/attempts/<k>/`, and runs it again. It refuses if the skill changed since the
+batch started (`--allow-skill-change` overrides; don't, unless the change can't affect
+behaviour). `--max-total-usd` counts the batch's cumulative spend across resumes. Starting a
+new batch over an existing folder is refused.
+
+When the account hits a usage limit, the cut-off run is marked `aborted` (never scored), no
+new runs are started, and the log prints the resume command.
 
 ## What a run is
 
@@ -96,6 +116,7 @@ Automatic (`metrics.py`), per run:
 | Key checks | per-case mechanical checks (diff patterns, store empty, no driver turns, hidden tests…) |
 | Human effort | driver turns, questions put to the driver, words the driver had to read |
 | Cost, tokens, time | per invocation, summed: cost, turns, input/output/cache-creation/cache-read tokens, wall time |
+| **Near a usage limit** | from the stream's `rate_limit_event`s and CLI messages, even if the run completed: max account utilization per window, any status other than `allowed`, limit/throttle messages, retry/error events. Flagged at utilization ≥ `--near-limit`. Utilization is account-wide (parallel runs and other sessions count) |
 | Other | store artifacts; planning files written inside repos; files/lines changed; tests run; subagents |
 
 Judge (`score.py`, a separate no-tools run with the answer key, a numbered condensed
@@ -111,7 +132,10 @@ Final per-run results (`combine()` in `gw_eval.py`):
   between "mentioned" and "acted on" is visible.
 - **Premature implementation** = the judge's pass/fail; the automatic signal is reported next to it.
 
-Report (`summary.md`): one table per case, columns with/baseline, n and spread; a list of
+Report (`summary.md`): one table per case, columns with/baseline, n and spread (including how
+many runs were near a usage limit); a per-run table with the near-limit flag and max
+utilization next to cost, caught-before-code and premature implementation, so those runs can
+be looked at separately rather than averaged in; a list of
 skill files read per run; a cross-case table of how many with-arm runs read each skill file.
 There is deliberately no aggregate score across cases.
 
