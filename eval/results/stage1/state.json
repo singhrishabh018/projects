@@ -80,9 +80,9 @@
    "updated": "2026-09-23T14:51:33"
   },
   "E7/with-2": {
-   "attempts": 0,
-   "status": "pending",
-   "updated": "2026-09-23T14:47:12"
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:55:19"
   },
   "E9/baseline-1": {
    "attempts": 1,
@@ -99,8 +99,11 @@
   },
   "E9/with-1": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:51:01"
+   "cost_usd": 1.7731,
+   "near_limit": true,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T14:55:19"
   },
   "E9/with-2": {
    "attempts": 0,
