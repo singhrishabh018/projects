@@ -98,7 +98,7 @@ preload them.
 Connectors (ticket tracker, docs, chat, etc.): `phases/c14-connectors.md`.
 Templates: `templates/`. Stack probes: `probes/`.
 
-Before your first file edit: name the open unknowns that affect this edit, and which part of the work they block. Edit only the parts they don't block.
+In the chat, immediately before your first file edit — not only in a decision-record file: name the open unknowns that affect this edit, and which part of the work they block. Edit only the parts they don't block.
 
 New evidence that contradicts a decision stops only the affected slice; reopen that
 decision and say so. End every full-mode task with: what changed · what was verified and

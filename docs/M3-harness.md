@@ -74,16 +74,16 @@ What this shows, with n=1 per arm, so as a direction only:
   record written just before the first edit. The SKILL.md wording ("name the open unknowns…")
   doesn't say where, and the agent chose the file. The report now shows "in chat" and "in
   store notes only" as separate rows, so the batch will show which one happens.
-- **The baseline was strong on this case.** It built size-or-age flushing, commit-after-send,
-  and drafted the partner note. The difference was in ordering and completeness, not in the
-  design: the with arm stated the facts before coding and left one fewer defect. It cost 1.9×
-  and took 2× the turns. E1 may not separate the arms much on outcome. That's worth knowing
-  before reading batch results as "the skill helps".
-- **The premature-implementation auto signal is too broad for E1.** It fires whenever
-  dependent code is edited while U1 is open, but the key allows building the safe option
-  (time flush) while asking. The judge overrode it in both runs. The judge's verdict is the
-  metric; the signal stays as a cross-check. I'd tighten E1's `dependent_code` pattern to
-  size-only flushing only after seeing more runs, not on n=1.
+- **E1 is a weak discriminator, on this one run.** The baseline reached the same design
+  (size-or-age flushing, commit-after-send, a drafted partner note) with *one fewer* judged
+  defect than the with-skill run, at roughly half the cost and half the turns. The with arm's
+  only clear win was ordering (facts stated before code, not after) and one more store
+  artifact. If Stage-1 results (below) look good, E1's batch numbers should still be read as
+  "didn't hurt, cost more, ordering was better" rather than "clearly helps" — and nothing here
+  should be tuned to make E1 look better. The auto premature-implementation signal is also too
+  broad for E1 (it fires whenever dependent code is touched while U1 is open, even though the
+  key allows building the safe time-based option while asking); the judge correctly overrode it
+  in both runs. Left as-is, not tuned, per the no-E1-tuning decision.
 
 ## 4. Projected batch cost (inferred, not measured)
 
