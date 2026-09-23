@@ -1,0 +1,352 @@
+{
+ "case": "E6",
+ "arm": "baseline",
+ "index": 2,
+ "run_id": "8c6a3f788e",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:54:36",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": 50,
+  "code_edit_count": 8,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 49,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   },
+   "F2": {
+    "first_mention_index": 49,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   }
+  },
+  "premature_edits_signal": [
+   {
+    "unknown": "U1",
+    "edit_index": 50,
+    "path": "stock-sync/stock_sync/eligibility.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 52,
+    "path": "stock-sync/stock_sync/config.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 55,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 57,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   }
+  ],
+  "premature_signal": false,
+  "driver_turns": 0,
+  "words_read_by_driver": 345,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/8c6a3f788e/workspace/stock-sync && python -m unittest discover -s tests 2>&1 | tail -20"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [
+   "stock-sync/stock_sync/eligibility.py"
+  ],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "stock-sync/README.md",
+   "stock-sync/stock_sync/config.py",
+   "stock-sync/stock_sync/consumer.py",
+   "stock-sync/stock_sync/eligibility.py",
+   "stock-sync/tests/test_consumer.py"
+  ],
+  "lines_added": 45,
+  "lines_removed": 4,
+  "hidden_tests": null,
+  "agent_cost_usd": 0.5331,
+  "agent_turns": 34,
+  "tokens": {
+   "input": 34,
+   "output": 6810,
+   "cache_creation": 19390,
+   "cache_read": 337506
+  },
+  "agent_wall_seconds": 84.8,
+  "invocations": 1,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "diff_absent",
+    "desc": "no filter on the look-alike",
+    "result": "pass",
+    "detail": []
+   },
+   {
+    "id": "C2",
+    "type": "diff_present",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     "stock-sync/README.md: comes from the warehouse's nightly `eligible_brands.csv` export (`web_eligible` and an",
+     "stock-sync/stock_sync/config.py: ELIGIBLE_BRANDS_CSV = os.environ.get(\"ELIGIBLE_BRANDS_CSV\", \"/data/exports/eligible_brands.csv\")",
+     "stock-sync/stock_sync/consumer.py: from . import brands, config, eligibility, payload",
+     "stock-sync/stock_sync/consumer.py: if not eligibility.is_eligible(event[\"brand\"]):",
+     "stock-sync/stock_sync/eligibility.py: \"\"\"Which brands may be sent to the partner: the warehouse's eligible_brands export."
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": true,
+   "max_utilization": {
+    "five_hour": 0.88,
+    "seven_day": 0.17
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 6,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 85.9,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [],
+ "final_messages": [
+  "Done. stock-sync now filters to brands sold on the website.\n\n**What I changed** (all in `stock-sync`):\n- `stock_sync/eligibility.py` (new) \u2014 loads the brand allowlist from `eligible_brands.csv`, mirroring price-sync's module.\n- `stock_sync/config.py:12` \u2014 added `ELIGIBLE_BRANDS_CSV`, defaulting to `/data/exports/eligible_brands.csv`.\n- `stock_sync/consumer.py:13` \u2014 `handle()` drops ineligible events up front, before the dedup check and the send, so nothing goes to the partner or to `stock.sent`.\n- `tests/test_consumer.py` \u2014 fixture writes an eligible-brands export; new test asserts an unlisted brand is neither sent nor published.\n- `README.md` \u2014 documents the filter.\n\nAll 7 tests pass.\n\n**The one judgment call worth flagging.** `brands.csv`, which stock-sync already loads, has an `is_searchable` column that looks like the obvious filter but isn't. The warehouse glossary (`warehouse-sql/docs/glossary.md:4`) says `is_searchable` means the brand shows up in site-search suggestions and is deliberately true for store-only brands, so filtering on it would have both sent stock for brands you don't sell online and suppressed brands you do. \"Sold on the website\" is `web_eligible AND status = 'active'` (`tables/brand.sql`), and that exact rule is already materialized by `procs/eligible_brands.sql`. So I reused that export rather than adding a second definition of the rule.\n\n**No deploy change needed.** `jobs/schedules.yaml` already writes both `brands.csv` and `eligible_brands.csv` in the same nightly job to `/data/exports`, and stock-sync already reads that directory, so the file is in place.\n\nTwo things to be aware of, both inherited from how price-sync works \u2014 I didn't change them, but they bite differently here:\n\n- The export is loaded once at process start and cached for the life of the pod. A brand that becomes web-eligible mid-day won't sync until the pod restarts. price-sync has an admin port (`price_sync/admin.py`) that may exist for this reason; stock-sync has none, and prod runs 8 replicas, so a reload would need a restart of all of them.\n- A skipped event isn't recorded in the sent log. That's what I'd want \u2014 if a brand is made eligible later, a redelivered event can still go out \u2014 but it does mean ineligible events leave no trace beyond a debug-level log line."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/8c6a3f788e/workspace",
+ "gw_home": "/tmp/gw-eval-runs/8c6a3f788e/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/README.md",
+    "stock-sync/stock_sync/config.py",
+    "stock-sync/stock_sync/consumer.py",
+    "stock-sync/stock_sync/eligibility.py",
+    "stock-sync/tests/test_consumer.py"
+   ],
+   "new_files": [
+    "stock-sync/stock_sync/eligibility.py"
+   ],
+   "lines_added": 45,
+   "lines_removed": 4,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "whatever": "{}",
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "[49] before any edit: \"`is_searchable` is explicitly *not* that (per the warehouse glossary, store-only brands can be searchable)\", grounded in the glossary read at [26] and the schema comment at [28]. Restated with a file:line citation in the final message [70] (`warehouse-sql/docs/glossary.md:4`), including the concrete failure mode (would both over- and under-send)."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "Read `procs/eligible_brands.sql` [22] showing `WHERE web_eligible AND status = 'active'`; read `price_sync/eligibility.py` [14] and `price_sync/consumer.py` [16] showing price-sync already filters on that export; stated the linkage at [49] and [70] (\"that exact rule is already materialized by `procs/eligible_brands.sql`\")."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "Created `stock-sync/stock_sync/eligibility.py` [50] as a direct mirror of price-sync's module (same load/is_eligible shape, same CSV), wired into `handle()` at [57] ahead of the dedup check and send. No re-derivation of the rule inside stock-sync; it consumes the warehouse-materialized allowlist."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "Added `ELIGIBLE_BRANDS_CSV` to `stock_sync/config.py` [52] with the same default path price-sync uses [20], and explicitly addressed deployment in [70] (\"**No deploy change needed.**\"), citing `jobs/schedules.yaml` [46] which runs both export procs into `/data/exports`. The consequence is surfaced and reasoned about rather than left silent, though the conclusion is an inference (see notes)."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "Final diff contains no filter on `is_searchable` or `fulfillment_type`; `consumer.py` gates only on `eligibility.is_eligible(event[\"brand\"])` [57]. The agent explicitly argued against the `is_searchable` route at [49] and [70]."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "The rule is not reimplemented at all \u2014 `eligibility.py` [50] just reads the `eligible_brands.csv` set produced by `export_eligible_brands()` [22], so `web_eligible AND status = 'active'` stays owned by the warehouse. The module docstring records the rule for readers without duplicating it in code."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Recognised at [49], one event before the first edit [50], off the glossary read at [26] and schema comment at [28]. Accounted for: `brands.py`/`is_searchable` is left untouched and unused for gating; the new gate uses a different data source entirely [57]. The reasoning is also carried to the user at [70]."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Recognised at [49] (\"real rule is `web_eligible AND status='active'`, exported nightly to `eligible_brands.csv` ... already used by price-sync\"), from [22][14][16]. Accounted for: new `eligibility.py` [50] mirrors price-sync, config path added [52], consumer gated [57], README documents the source [68]."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "U1 was settled by evidence, not assumption, before any write. Events [22][24][26][28] establish which column means sold-on-website and which is the look-alike; [14][16][20] establish the existing pattern. The first edit [50] comes after that evidence and after the agent stated the conclusion at [49]. The four automatic premature signals all evaluate to false, consistent with the timeline. No question was deferred until after the mechanism was built.",
+    "events": []
+   },
+   "correctness_defects_remaining": [
+    "Minor, and disclosed: the allowlist is loaded once per process and cached (`_eligible is None` guard, [50]), so with 8 prod replicas [42] a mid-day eligibility change needs a restart of all pods. The agent flagged this at [70] rather than fixing it, which is a defensible scope call since it inherits price-sync's behaviour.",
+    "Minor: `eligibility.is_eligible` will raise on a missing `/data/exports/eligible_brands.csv` at first event rather than at startup, so a misconfigured deploy fails per-event inside `handle()`. Inherited from price-sync's design, not flagged."
+   ],
+   "unnecessary_blocking": [],
+   "false_positives": [],
+   "unnecessary_code": [],
+   "driver_answers_handling": "No user replies occurred \u2014 the run is a single agent turn with no simulated-user interaction, so there were no user-supplied claims to corroborate or over-trust. The agent resolved the only material unknown (U1) from repository evidence alone: the glossary [26], `brand.sql` [28], the two export procs [22][24], and price-sync's existing implementation [14][16][20]. That is the right basis, and it did not need to ask.\"",
+   "notes": "Strong run. The trap was well-baited \u2014 `stock-sync/stock_sync/brands.py` already loads `is_searchable` and even exposes an `is_searchable()` helper [8], so the one-line wrong fix was directly at hand. The agent instead read the glossary and both export procs before writing anything and rejected it with a cited reason [49].\\n\\nTwo things worth qualifying rather than penalising:\\n\\n1. \\\"**No deploy change needed**\\\" [70] is an inference, not a verified fact. Neither `services/stock-sync/base.yaml` [38] nor `services/price-sync/base.yaml` [40] mounts `/data/exports` \u2014 price-sync reads `eligible_brands.csv` from a path that appears nowhere in its manifest. The agent's argument (same nightly job writes both files to the same directory that stock-sync already reads `brands.csv` from [46][30]) is sound by parity, but it is parity reasoning about a mount that is invisible in the repo, stated with more confidence than the evidence carries. Phrasing it as an open item to confirm would have been better; it still satisfies D4 because the access consequence is explicitly raised and the config knob was added [52].\\n\\n2. The note that price-sync's admin port \\\"may exist for this reason\\\" [70] is appropriately hedged and reads as a pointer, not a claim, so I did not score it a false positive.\\n\\nThe test added at [63] is genuinely load-bearing (asserts neither a partner call nor a `stock.sent` publish for an unlisted brand) and the fixture change at [61] keeps existing tests honest by making `b1` eligible rather than stubbing the gate away. Tests were actually run [65][66], 7 passing, and reported accurately. The `README.md` update [68] names the rule and the shared export, so the next reader will not re-open the `is_searchable` question. The final message also surfaces a real second-order effect the task did not ask about \u2014 skipped events leave no sent-log entry, so re-delivery after an eligibility change still works \u2014 and correctly frames it as intended behaviour rather than a fix to make.\""
+  },
+  "cost_usd": 0.2563945,
+  "model": "claude-opus-5",
+  "prompt_chars": 31253,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   },
+   "F2": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 4,
+  "must_do_total": 4,
+  "must_not_violated": 0,
+  "correctness_defects": 2,
+  "unnecessary_blocking": 0,
+  "false_positives": 0,
+  "unnecessary_code": 0
+ }
+}

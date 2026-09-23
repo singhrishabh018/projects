@@ -42,8 +42,11 @@
   },
   "E6/baseline-2": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:54:35"
+   "cost_usd": 0.7895,
+   "near_limit": true,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T14:57:04"
   },
   "E6/with-1": {
    "attempts": 1,
@@ -67,9 +70,9 @@
    "updated": "2026-09-23T14:51:25"
   },
   "E7/baseline-2": {
-   "attempts": 0,
-   "status": "pending",
-   "updated": "2026-09-23T14:47:12"
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:57:04"
   },
   "E7/with-1": {
    "attempts": 1,
