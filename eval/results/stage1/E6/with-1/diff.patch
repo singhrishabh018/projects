@@ -1,0 +1,121 @@
+
+
+diff --git a/stock-sync/README.md b/stock-sync/README.md
+index 27d50a1..e187fc7 100644
+--- a/stock-sync/README.md
++++ b/stock-sync/README.md
+@@ -1,7 +1,9 @@
+ # stock-sync
+ 
+ Consumes `stock.changed` events from the message broker and pushes stock levels to the
+-marketplace partner's inventory API. After each successful send it publishes the sent item
++marketplace partner's inventory API. Only brands sold on the website are sent; the list
++comes from the nightly warehouse export `eligible_brands.csv` (see
++`warehouse-sql/procs/eligible_brands.sql`), the same export price-sync uses. After each successful send it publishes the sent item
+ to `stock.sent` (the warehouse loads that topic for the "what did we send" report).
+ 
+ Run tests: `python -m unittest discover -s tests`
+diff --git a/stock-sync/stock_sync/config.py b/stock-sync/stock_sync/config.py
+index 7d280bd..9dc7cc0 100644
+--- a/stock-sync/stock_sync/config.py
++++ b/stock-sync/stock_sync/config.py
+@@ -9,3 +9,4 @@ BROKER_URL = os.environ.get("BROKER_URL", "broker://localhost:9092")
+ CONSUMER_GROUP = "stock-sync"
+ SENT_LOG_PATH = os.environ.get("SENT_LOG_PATH", "/var/lib/stock-sync/sent.db")
+ BRANDS_CSV = os.environ.get("BRANDS_CSV", "/data/exports/brands.csv")
++ELIGIBLE_BRANDS_CSV = os.environ.get("ELIGIBLE_BRANDS_CSV", "/data/exports/eligible_brands.csv")
+diff --git a/stock-sync/stock_sync/consumer.py b/stock-sync/stock_sync/consumer.py
+index f47ba39..ab06faf 100644
+--- a/stock-sync/stock_sync/consumer.py
++++ b/stock-sync/stock_sync/consumer.py
+@@ -1,7 +1,10 @@
+-"""Main loop: one stock.changed event in, one partner inventory call out."""
++"""Main loop: one stock.changed event in, one partner inventory call out.
++
++Only brands sold on the website are sent (see eligibility).
++"""
+ import logging
+ 
+-from . import brands, config, payload
++from . import brands, config, eligibility, payload
+ from .broker import Broker
+ from .dedup import SentLog
+ from .partner_client import PartnerClient
+@@ -10,6 +13,9 @@ log = logging.getLogger(__name__)
+ 
+ 
+ def handle(event, client, sent_log, broker):
++    if not eligibility.is_eligible(event["brand"]):
++        log.debug("brand %s not sold on the website, skipping %s", event["brand"], event["sku"])
++        return
+     if sent_log.seen(event["event_id"]):
+         log.info("skipping already-sent event %s", event["event_id"])
+         return
+diff --git a/stock-sync/stock_sync/eligibility.py b/stock-sync/stock_sync/eligibility.py
+new file mode 100644
+index 0000000..d9c0cc8
+--- /dev/null
++++ b/stock-sync/stock_sync/eligibility.py
+@@ -0,0 +1,25 @@
++"""Which brands may be sent to the partner: the warehouse's eligible_brands export.
++
++Same export price-sync uses (warehouse-sql/procs/eligible_brands.sql): brands with
++web_eligible and status 'active', i.e. the brands sold on the website.
++
++Loaded once when the process starts. The export is regenerated nightly by the warehouse.
++"""
++import csv
++
++from . import config
++
++_eligible = None
++
++
++def load(path=None):
++    global _eligible
++    with open(path or config.ELIGIBLE_BRANDS_CSV, newline="") as f:
++        _eligible = {row["brand_id"] for row in csv.DictReader(f)}
++    return _eligible
++
++
++def is_eligible(brand_id):
++    if _eligible is None:
++        load()
++    return brand_id in _eligible
+diff --git a/stock-sync/tests/test_consumer.py b/stock-sync/tests/test_consumer.py
+index 8447751..e5bbd29 100644
+--- a/stock-sync/tests/test_consumer.py
++++ b/stock-sync/tests/test_consumer.py
+@@ -2,7 +2,7 @@ import os
+ import tempfile
+ import unittest
+ 
+-from stock_sync import brands, consumer
++from stock_sync import brands, consumer, eligibility
+ from stock_sync.dedup import SentLog
+ from stock_sync.partner_client import PartnerClient
+ from tests.fake_partner import FakePartner
+@@ -26,6 +26,10 @@ class ConsumerTest(unittest.TestCase):
+         with open(csv_path, "w") as f:
+             f.write("brand_id,name,is_searchable,fulfillment_type\nb1,Acme,1,ship\n")
+         brands.load(csv_path)
++        eligible_path = os.path.join(self.tmp, "eligible_brands.csv")
++        with open(eligible_path, "w") as f:
++            f.write("brand_id\nb1\n")
++        eligibility.load(eligible_path)
+         self.partner = FakePartner()
+         self.client = PartnerClient(base_url="https://p.test", token="t", opener=self.partner)
+         self.sent_log = SentLog(os.path.join(self.tmp, "sent.db"))
+@@ -45,6 +49,11 @@ class ConsumerTest(unittest.TestCase):
+         consumer.handle(EVENT, self.client, self.sent_log, self.broker)
+         self.assertEqual(self.broker.published[0][0], "stock.sent")
+ 
++    def test_brand_not_sold_on_website_is_not_sent(self):
++        consumer.handle(dict(EVENT, brand="b2"), self.client, self.sent_log, self.broker)
++        self.assertEqual(self.partner.requests, [])
++        self.assertEqual(self.broker.published, [])
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+
