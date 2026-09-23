@@ -1,0 +1,368 @@
+{
+ "case": "E6",
+ "arm": "baseline",
+ "index": 1,
+ "run_id": "afd769e7cb",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:48:32",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": 11,
+  "code_edit_count": 11,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 10,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   },
+   "F2": {
+    "first_mention_index": 10,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   }
+  },
+  "premature_edits_signal": [
+   {
+    "unknown": "U1",
+    "edit_index": 11,
+    "path": "stock-sync/stock_sync/eligibility.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 13,
+    "path": "stock-sync/stock_sync/config.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 15,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 17,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 19,
+    "path": "stock-sync/stock_sync/consumer.py",
+    "invocation": 0,
+    "before_fact_mention": false,
+    "same_turn_ends_asking": false,
+    "signal": false
+   }
+  ],
+  "premature_signal": false,
+  "driver_turns": 0,
+  "words_read_by_driver": 277,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/afd769e7cb/workspace/stock-sync && python -m unittest discover -s tests 2>&1 | tail -20"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [
+   "stock-sync/stock_sync/eligibility.py"
+  ],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "deploy-config/runbooks/stock-sync.md",
+   "stock-sync/README.md",
+   "stock-sync/stock_sync/config.py",
+   "stock-sync/stock_sync/consumer.py",
+   "stock-sync/stock_sync/eligibility.py",
+   "stock-sync/tests/test_consumer.py",
+   "warehouse-sql/procs/eligible_brands.sql"
+  ],
+  "lines_added": 51,
+  "lines_removed": 5,
+  "hidden_tests": null,
+  "agent_cost_usd": 0.5389,
+  "agent_turns": 19,
+  "tokens": {
+   "input": 38,
+   "output": 5761,
+   "cache_creation": 18945,
+   "cache_read": 410374
+  },
+  "agent_wall_seconds": 75.1,
+  "invocations": 1,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "diff_absent",
+    "desc": "no filter on the look-alike",
+    "result": "pass",
+    "detail": []
+   },
+   {
+    "id": "C2",
+    "type": "diff_present",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     "stock-sync/README.md: comes from the warehouse's nightly `eligible_brands.csv` export (`web_eligible` and",
+     "stock-sync/stock_sync/config.py: ELIGIBLE_BRANDS_CSV = os.environ.get(\"ELIGIBLE_BRANDS_CSV\", \"/data/exports/eligible_brands.csv\")",
+     "stock-sync/stock_sync/consumer.py: Only brands sold on the website are sent, see `eligibility`.",
+     "stock-sync/stock_sync/consumer.py: from . import brands, config, eligibility, payload",
+     "stock-sync/stock_sync/consumer.py: if not eligibility.is_eligible(event[\"brand\"]):"
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": false,
+   "max_utilization": {
+    "five_hour": 0.67,
+    "seven_day": 0.15
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 6,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 76.3,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [],
+ "final_messages": [
+  "Done. stock-sync now only sends stock updates for brands sold on the website.\n\n**What I changed**\n- `stock-sync/stock_sync/eligibility.py` (new) \u2014 loads the warehouse's `eligible_brands.csv` into a brand-id set, mirroring price-sync's module.\n- `stock-sync/stock_sync/consumer.py:12` \u2014 `handle` returns early (debug log, no partner call, no `stock.sent` publish) when the event's brand isn't eligible. The check runs before the dedup lookup, so skipped events never touch the sent log.\n- `stock-sync/stock_sync/config.py` \u2014 added `ELIGIBLE_BRANDS_CSV`, defaulting to `/data/exports/eligible_brands.csv`.\n- Tests \u2014 existing cases load an eligible-brands file; new `test_brand_not_sold_on_website_is_skipped` asserts no partner request and no publish. All 7 pass.\n- Docs \u2014 stock-sync README, the deploy-config runbook, and the comment on `eligible_brands.sql` (it now feeds two services).\n\n**The judgment call worth flagging:** stock-sync's own `brands.csv` has `is_searchable` and `fulfillment_type`, but per `warehouse-sql/docs/glossary.md` neither means \"sold on the website\" \u2014 searchable is true for store-only brands too. The real rule is `web_eligible AND status = 'active'`, which the warehouse already exports as `eligible_brands.csv` for price-sync, so I reused that export instead of deriving a rule from the columns stock-sync happened to have. Both services now share one definition of website eligibility.\n\nTwo operational consequences:\n- **No deploy-manifest change was needed**, since the file sits in `/data/exports` alongside the `brands.csv` stock-sync already reads. If that path is mounted per-file rather than per-directory in the real cluster, the mount needs widening \u2014 I couldn't tell from `services/stock-sync/base.yaml`, which declares no volume for it.\n- The list is **loaded once at startup** (matching price-sync), so merchandising changes need the nightly export plus a pod restart. I noted this in the runbook rather than adding reloading, which would be a larger change than you asked for."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/afd769e7cb/workspace",
+ "gw_home": "/tmp/gw-eval-runs/afd769e7cb/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [
+    "deploy-config/runbooks/stock-sync.md"
+   ],
+   "new_files": [],
+   "lines_added": 3,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/README.md",
+    "stock-sync/stock_sync/config.py",
+    "stock-sync/stock_sync/consumer.py",
+    "stock-sync/stock_sync/eligibility.py",
+    "stock-sync/tests/test_consumer.py"
+   ],
+   "new_files": [
+    "stock-sync/stock_sync/eligibility.py"
+   ],
+   "lines_added": 47,
+   "lines_removed": 4,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [
+    "warehouse-sql/procs/eligible_brands.sql"
+   ],
+   "new_files": [],
+   "lines_added": 1,
+   "lines_removed": 1,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "[6] reads warehouse-sql/docs/glossary.md; [7] returns the definition that is_searchable \"Can be true for store-only brands\"; [10], before any edit: \"`is_searchable`/`fulfillment_type` are different things\"; [42] states it explicitly with the source: \"per `warehouse-sql/docs/glossary.md` neither means 'sold on the website' \u2014 searchable is true for store-only brands too.\""
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "[6] cats warehouse-sql/procs/eligible_brands.sql and price-sync/price_sync/eligibility.py; [10] \"The website-sold rule already exists in the warehouse as `eligible_brands.csv` (`web_eligible AND status = 'active'`), which price-sync consumes\"; restated at [42] and in the README diff."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "[11] creates stock-sync/stock_sync/eligibility.py mirroring price-sync's module (loads eligible_brands.csv into a brand-id set); [17] adds the early-return filter in consumer.handle; [13] adds ELIGIBLE_BRANDS_CSV config. No rule is re-derived locally \u2014 the existing export is reused."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[13] adds ELIGIBLE_BRANDS_CSV defaulting to /data/exports/eligible_brands.csv; [35] runbook entry \"Pods read `/data/exports/eligible_brands.csv` ... once at startup\"; [37]-[39] verifies the nightly job already writes it; [42] explicitly raises the open item that services/stock-sync/base.yaml declares no volume for it and the mount may need widening."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "No use of is_searchable or fulfillment_type as a filter anywhere in the final diff; [10] and [42] explicitly reject them. The only appearance of those columns in the diff is pre-existing test fixture data in test_consumer.py."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "[11] consumes the warehouse's eligible_brands.csv membership set rather than re-implementing web_eligible/status logic in Python; [40] only updates a comment on the existing proc, leaving the rule itself untouched, so the two services share one definition."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Recognised at [10], pre-edit (first edit is [11]), and elaborated with its source at [42]. The design accounts for it: the filter never reads is_searchable/fulfillment_type from brands.csv, which was the available trap."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Recognised at [10] with the exact rule `web_eligible AND status = 'active'` plus the price-sync precedent, sourced from [7]. The design accounts for it: [11] loads the same eligible_brands.csv export price-sync uses, and the README diff records the rule and the shared source."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "U1 (which signal means \"sold on the website\") was resolved with direct evidence \u2014 glossary.md, eligible_brands.sql and price-sync/eligibility.py at [6]-[7] \u2014 and stated as a conclusion at [10], before the first code edit at [11]. Every dependent edit ([11], [13], [15], [17], [19]) came after that resolution, so no mechanism was built ahead of the answer. This matches the automatic signals, which flag no premature edits.",
+    "events": []
+   },
+   "correctness_defects_remaining": [
+    "Lazy-loading divergence: stock_sync/eligibility.py loads on first use ([11]) whereas price-sync's module, read at [7], documents being \"Loaded once when the process starts\". The agent did not wire an explicit load() into stock-sync's startup path, so a missing or unreadable eligible_brands.csv surfaces as an exception on the first event rather than at boot. Minor, but it is a behavioural difference from the module it claims to mirror.",
+    "No ELIGIBLE_BRANDS_CSV entry was added to deploy-config/services/stock-sync/base.yaml even though the agent read it at [8]; the service relies entirely on the hardcoded default in config.py ([13]) while the sibling BRANDS_CSV is env-driven. Harmless given the default matches the documented export path, and the related volume-mount uncertainty was flagged at [42]."
+   ],
+   "unnecessary_blocking": [],
+   "false_positives": [
+    "Borderline only: the volume-mount caveat at [42] (\"If that path is mounted per-file rather than per-directory ... the mount needs widening\") is speculative, but the agent explicitly scoped it as something it could not determine from base.yaml, so it reads as an honest open item rather than a fabricated concern."
+   ],
+   "unnecessary_code": [],
+   "driver_answers_handling": "\"No simulated user replies occurred in this run \u2014 the agent completed the task in a single turn without asking a question, so there were no user answers to corroborate or over-trust. Not applicable. Worth noting that the key permitted holding the filter and asking; the agent instead resolved the unknown from repository evidence ([6]-[7], concluded at [10]), which is the stronger path and avoided an unnecessary block.\"",
+   "notes": "\"Strong run. Investigation order is the deciding factor: [1]-[8] gathered the glossary, the warehouse proc, price-sync's implementation, the deploy manifests and the tests before a single line was written, so the look-alike trap (is_searchable, which is present in stock-sync's own brands.csv and would have been the path of least resistance) was never taken. The filter is placed before the dedup check ([17]), which is correct \u2014 skipped events should not consume sent-log entries \u2014 and the agent justified that placement at [42]. Tests were extended rather than merely added: the existing setUp needed an eligible-brands fixture ([24]), and the new negative case ([26]) asserts both no partner request and no stock.sent publish. Tests run and pass at [29] (7 tests, OK) and the agent reported that plainly. Scope discipline is good: it checked the job schedule at [37] and correctly concluded no scheduling change was needed rather than editing it, and declined to add hot-reloading, documenting the startup-load limitation in the runbook at [35] instead. The comment change at [40] is proportionate and accurate. The final message cleanly separates what changed, the judgment call, and the two operational consequences without overclaiming.\""
+  },
+  "cost_usd": 0.334954,
+  "model": "claude-opus-5",
+  "prompt_chars": 26337,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   },
+   "F2": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 4,
+  "must_do_total": 4,
+  "must_not_violated": 0,
+  "correctness_defects": 2,
+  "unnecessary_blocking": 0,
+  "false_positives": 1,
+  "unnecessary_code": 0
+ }
+}
