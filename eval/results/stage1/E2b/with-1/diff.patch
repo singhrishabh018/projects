@@ -1,0 +1,18 @@
+
+
+diff --git a/stock-sync/stock_sync/payload.py b/stock-sync/stock_sync/payload.py
+index 21fbe28..f2a932e 100644
+--- a/stock-sync/stock_sync/payload.py
++++ b/stock-sync/stock_sync/payload.py
+@@ -1,4 +1,9 @@
+-"""Builds the partner inventory item from a stock.changed event."""
++"""Builds the partner inventory item from a stock.changed event.
++
++Field names here are the partner's, not ours: see docs/partner-api.md. Renaming one
++is not cosmetic -- the partner drops items with unknown or missing fields and still
++answers 202, and warehouse-sql reads these names off the stock.sent topic.
++"""
+ from datetime import datetime, timezone
+ 
+ 
+

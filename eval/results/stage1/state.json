@@ -15,8 +15,11 @@
   },
   "E2b/with-1": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:47:18"
+   "cost_usd": 0.9535,
+   "near_limit": false,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T14:49:12"
   },
   "E2b/with-2": {
    "attempts": 0,
@@ -54,9 +57,9 @@
    "updated": "2026-09-23T14:47:12"
   },
   "E7/with-1": {
-   "attempts": 0,
-   "status": "pending",
-   "updated": "2026-09-23T14:47:12"
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:49:12"
   },
   "E7/with-2": {
    "attempts": 0,

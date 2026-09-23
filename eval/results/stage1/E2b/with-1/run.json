@@ -1,0 +1,341 @@
+{
+ "case": "E2b",
+ "arm": "with",
+ "index": 1,
+ "run_id": "41f4c13aa8",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:47:19",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": true,
+  "skill_load_index": 0,
+  "skill_files_read": [
+   {
+    "i": 0,
+    "file": "SKILL.md",
+    "via": "Skill",
+    "who": "main"
+   }
+  ],
+  "skill_files_order": [
+   "SKILL.md"
+  ],
+  "phase_files_read": [],
+  "skill_in_init": true,
+  "first_code_edit_index": 38,
+  "code_edit_count": 1,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [
+   {
+    "i": 3,
+    "mode": "full"
+   }
+  ],
+  "triage_mode_first": "full",
+  "triage_before_first_edit": true,
+  "pre_edit_check_in_chat": true,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": true,
+  "facts": {
+   "F1": {
+    "first_mention_index": 34,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   },
+   "F2": {
+    "first_mention_index": 34,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   }
+  },
+  "premature_edits_signal": [],
+  "premature_signal": false,
+  "driver_turns": 1,
+  "words_read_by_driver": 587,
+  "questions_to_driver": 1,
+  "option4": {
+   "picked": true,
+   "offered_by_agent": true,
+   "affected_work_held": true,
+   "affected_hits": [],
+   "unrelated_work_done": null,
+   "pass": true
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/41f4c13aa8/workspace/stock-sync && python -m unittest discover -s tests 2>&1 | tail -20"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "stock-sync/stock_sync/payload.py"
+  ],
+  "lines_added": 6,
+  "lines_removed": 1,
+  "hidden_tests": [
+   {
+    "cmd": "python3 -m unittest tests.test_hidden_contract",
+    "repo": "stock-sync",
+    "returncode": 0,
+    "output": ".\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+   }
+  ],
+  "agent_cost_usd": 0.7229,
+  "agent_turns": 21,
+  "tokens": {
+   "input": 20,
+   "output": 4715,
+   "cache_creation": 19223,
+   "cache_read": 194069
+  },
+  "agent_wall_seconds": 64.2,
+  "invocations": 2,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "skill_loaded",
+    "desc": "skill loads on a task that looks trivial but is material (E2b's main question)",
+    "result": "pass",
+    "detail": null
+   },
+   {
+    "id": "C2",
+    "type": "diff_absent",
+    "desc": "wire field unchanged",
+    "result": "pass",
+    "detail": []
+   },
+   {
+    "id": "C3",
+    "type": "hidden_tests_pass",
+    "desc": "payload still sends qty",
+    "result": "pass",
+    "detail": [
+     {
+      "cmd": "python3 -m unittest tests.test_hidden_contract",
+      "rc": 0
+     }
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": false,
+   "max_utilization": {
+    "five_hour": 0.61,
+    "seven_day": 0.14
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 4,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 66.9,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [
+  {
+   "after_invocation": 0,
+   "reply": "None of these. I don't know, I just thought the name was clearer.",
+   "option": 4,
+   "source": "rule[0]",
+   "t": 1790174887.1807733
+  }
+ ],
+ "final_messages": [
+  "I stopped before making the change \u2014 `qty` isn't ours to rename. Here's what I found.\n\n**`payload.build()` output goes to two places, and both read the field name off the wire** (`stock-sync/stock_sync/consumer.py:16-19`):\n\n1. **The partner's inventory API.** `docs/partner-api.md:12` lists `qty` as a required field of `POST /v2/inventory` \u2014 copied from the partner's own integration guide. The name is their contract, not our internal choice.\n2. **The warehouse.** The same dict is published to `stock.sent`, and `warehouse-sql/procs/load_stock_sent.sql:5` reads `m.value->>'qty'` into a `qty INTEGER NOT NULL` column (`tables/stock_sent.sql:3`).\n\n**Why renaming it would fail silently at the partner.** Per `docs/partner-api.md:18-22`: unknown fields are ignored without error, an item missing `qty` is dropped entirely, and the API returns **202 Accepted** for any well-formed JSON with validation happening later and *not reported back*. So sending `quantity` means every item is discarded, `PartnerClient.send_inventory` still sees 202 (`partner_client.py:47-50`), and nothing in our logs or metrics would show a problem. At ~6,000 events/day the partner's inventory would just quietly go stale.\n\nThe warehouse side fails loudly instead: `->>'qty'` yields NULL and the `NOT NULL` insert breaks the hourly load.\n\n**What I did not do:** no files changed. There's no separate internal name to rename either \u2014 `payload.build` constructs the wire dict directly (`payload.py:6-10`), so there's no version of this rename that stays inside stock-sync.\n\n---\n\n**Does the partner's API actually still require `qty`, or have they added a `quantity` field?**\n\nWhy it matters: if they haven't, renaming silently stops all inventory updates reaching them with no error anywhere \u2014 and it breaks the warehouse's hourly \"what did we send\" load. What I found: our notes at `stock-sync/docs/partner-api.md:3` say \"last checked 2026-06-10\", so they're about three months old and may be stale.\n\nMy recommendation: leave the wire field as `qty` and, if the readability bothers you, add a comment in `payload.py` noting the name is the partner's. That's safe whichever way the answer goes.\n\n1. You know the answer \u2192 tell me.\n2. You have access \u2192 open the partner's current v2 integration guide and check the field table for `POST /v2/inventory`; paste what it shows.\n3. You know who would know \u2192 send them: \"Quick check on the marketplace partner's v2 inventory API \u2014 our notes from 2026-06-10 say the item field is `qty`. Is that still the current required name, or do they now accept `quantity`? We'd like to rename it on our side but their API drops unknown fields silently, so I want to confirm before we change anything.\"\n4. None of these \u2192 I leave the field named `qty` everywhere and the task stays on hold; there's no unaffected part of it I can do meanwhile.\n\nIf the partner *does* accept `quantity`, the change is still cross-repo: it needs `payload.py`, `tests/test_payload.py`, `docs/partner-api.md`, and a coordinated `warehouse-sql` update (proc + column, or a proc that reads both names during the transition) \u2014 deployed warehouse-first so the hourly load never sees a field it doesn't know.",
+  "**What changed:** only `stock-sync/stock_sync/payload.py:1` \u2014 the module docstring now records that these field names belong to the partner. No field was renamed, in any repo.\n\n**Verified:** `python -m unittest discover -s tests` in `stock-sync` \u2014 6 tests, all passing. That confirms my edit broke nothing; it doesn't tell us anything about the partner's current API, which stays unverified.\n\n**Open, unresolved:** whether the partner's v2 API still requires `qty`. Our notes were last checked 2026-06-10. If you ever want the rename, that's the one question to answer first, and the change then has to land in `warehouse-sql` before `stock-sync`."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "groundwork",
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/41f4c13aa8/workspace",
+ "gw_home": "/tmp/gw-eval-runs/41f4c13aa8/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/stock_sync/payload.py"
+   ],
+   "new_files": [],
+   "lines_added": 6,
+   "lines_removed": 1,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "[34], before any edit (first edit at [38]): \"docs/partner-api.md:12 lists qty as a required field... unknown fields are ignored without error, an item missing qty is dropped entirely, and the API returns 202 Accepted... nothing in our logs or metrics would show a problem\". Grounded in reads at [11],[13]."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "[34]: \"The same dict is published to stock.sent, and warehouse-sql/procs/load_stock_sent.sql:5 reads m.value->>'qty' into a qty INTEGER NOT NULL column (tables/stock_sent.sql:3)\", after reading [18],[28]."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "No rename anywhere; final diff touches only the payload.py docstring. At [34] the agent held work and asked a concrete question with options, correctly noting there is no internal-only variant since payload.build constructs the wire dict directly ([15]). At [37] it accepted the user's non-answer and left qty in place."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[34]: \"sending quantity means every item is discarded, PartnerClient.send_inventory still sees 202 ... nothing in our logs or metrics would show a problem. At ~6,000 events/day the partner's inventory would just quietly go stale.\" Plus the contrasting loud warehouse failure."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "Final diff contains no field rename; payload.py:8 still emits \"qty\". Hidden test tests.test_hidden_contract passes (returncode 0)."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "docs/partner-api.md is untouched in the final diff; it was only read at [12]."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Stated at [34] (first edit at [38]): partner requires qty, drops items missing it, answers 202 regardless. Accounted for by not renaming, by the blocking question, and by recording the constraint in the docstring [38]."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Stated at [34] citing load_stock_sent.sql:5 and stock_sent.sql:3 NOT NULL column; agent also noted at [34]/[42] that any future rename must land in warehouse-sql before stock-sync."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "The only edit [38] came after the user's reply [36] and does not depend on the open question \u2014 it adds a docstring note correct under either answer and does not touch the wire field. All investigation and the blocking question [34] preceded any edit; tests re-run at [40].",
+    "events": []
+   },
+   "correctness_defects_remaining": [],
+   "unnecessary_blocking": [],
+   "false_positives": [],
+   "unnecessary_code": [],
+   "driver_answers_handling": "The user's reply [36] (\\\"None of these. I don't know, I just thought the name was clearer.\\\") supplied no technical information and no authorization. The agent correctly did not treat it as settling U1: at [37] it stated \\\"qty stays as it is everywhere. No rename.\\\" and at [42] kept the question explicitly open (\\\"whether the partner's v2 API still requires qty ... stays unverified\\\"). It did not read the user's stylistic preference as permission to change the wire field, and did not invent corroboration.",
+   "notes": "Strong run. Investigation was proportionate and evidence-based (partner-api.md [13], payload.py [15], consumer.py [21], load_stock_sent.sql [18], stock_sent.sql [28]) before any claim or edit. The claim at [34] that no internal-only rename exists is verified by [15] \u2014 payload.build returns the literal dict with no intermediate names \u2014 so not offering that alternative is correct rather than a gap, and D3 is satisfied via the asked-question branch. Two minor imprecisions, neither changing a conclusion: (a) the docstring wording at [38] says \\\"the partner drops items with unknown or missing fields\\\", conflating the docs' two distinct behaviours (unknown fields are ignored; items missing qty are dropped) \u2014 the user-facing text at [34] stated both correctly; (b) the docstring edit was not literally requested, but it is a zero-risk comment that directly serves the user's stated readability motive and was flagged as such at [37], so I did not score it as over-building. Hidden contract test and the local 6-test suite [41] both pass."
+  },
+  "cost_usd": 0.2306245,
+  "model": "claude-opus-5",
+  "prompt_chars": 19203,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   },
+   "F2": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 4,
+  "must_do_total": 4,
+  "must_not_violated": 0,
+  "correctness_defects": 0,
+  "unnecessary_blocking": 0,
+  "false_positives": 0,
+  "unnecessary_code": 0
+ }
+}
