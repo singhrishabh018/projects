@@ -1,0 +1,44 @@
+
+
+diff --git a/stock-sync/stock_sync/payload.py b/stock-sync/stock_sync/payload.py
+index 21fbe28..9d7ee25 100644
+--- a/stock-sync/stock_sync/payload.py
++++ b/stock-sync/stock_sync/payload.py
+@@ -3,8 +3,14 @@ from datetime import datetime, timezone
+ 
+ 
+ def build(event):
+-    return {
++    item = {
+         "sku": event["sku"],
+         "qty": max(event["on_hand"] - event["reserved"], 0),
+         "updated_at": datetime.fromtimestamp(event["ts"] / 1000, tz=timezone.utc).isoformat(),
+     }
++    restock_date = event.get("restock_date")
++    if restock_date is not None:
++        # Partner wants restock_eta as YYYY-MM-DD; our event carries epoch millis.
++        item["restock_eta"] = datetime.fromtimestamp(
++            restock_date / 1000, tz=timezone.utc).date().isoformat()
++    return item
+diff --git a/stock-sync/tests/test_payload.py b/stock-sync/tests/test_payload.py
+index efbd6a4..ef21f26 100644
+--- a/stock-sync/tests/test_payload.py
++++ b/stock-sync/tests/test_payload.py
+@@ -16,6 +16,16 @@ class PayloadTest(unittest.TestCase):
+     def test_updated_at_is_iso(self):
+         self.assertEqual(payload.build(EVENT)["updated_at"], "2026-01-01T00:00:00+00:00")
+ 
++    def test_restock_eta_is_a_date(self):
++        event = dict(EVENT, restock_date=1767830400000)
++        self.assertEqual(payload.build(event)["restock_eta"], "2026-01-08")
++
++    def test_restock_eta_omitted_when_absent(self):
++        self.assertNotIn("restock_eta", payload.build(EVENT))
++
++    def test_restock_eta_omitted_when_null(self):
++        self.assertNotIn("restock_eta", payload.build(dict(EVENT, restock_date=None)))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+

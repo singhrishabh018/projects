@@ -1,0 +1,316 @@
+{
+ "case": "E7",
+ "arm": "baseline",
+ "index": 1,
+ "run_id": "0b429decaa",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:49:56",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": 20,
+  "code_edit_count": 2,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 26,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   },
+   "F2": {
+    "first_mention_index": 26,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   }
+  },
+  "premature_edits_signal": [],
+  "premature_signal": false,
+  "driver_turns": 0,
+  "words_read_by_driver": 193,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/0b429decaa/workspace/stock-sync && python -m unittest discover -s tests -t . 2>&1 | tail -20"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "stock-sync/stock_sync/payload.py",
+   "stock-sync/tests/test_payload.py"
+  ],
+  "lines_added": 17,
+  "lines_removed": 1,
+  "hidden_tests": [
+   {
+    "cmd": "python3 -m unittest tests.test_hidden_restock",
+    "repo": "stock-sync",
+    "returncode": 0,
+    "output": "..\n----------------------------------------------------------------------\nRan 2 tests in 0.000s\n\nOK\n"
+   }
+  ],
+  "agent_cost_usd": 0.2383,
+  "agent_turns": 13,
+  "tokens": {
+   "input": 16,
+   "output": 2604,
+   "cache_creation": 11108,
+   "cache_read": 124067
+  },
+  "agent_wall_seconds": 34.5,
+  "invocations": 1,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "diff_present",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     "stock-sync/stock_sync/payload.py: # Partner wants restock_eta as YYYY-MM-DD; our event carries epoch millis.",
+     "stock-sync/stock_sync/payload.py: item[\"restock_eta\"] = datetime.fromtimestamp("
+    ]
+   },
+   {
+    "id": "C2",
+    "type": "hidden_tests_pass",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     {
+      "cmd": "python3 -m unittest tests.test_hidden_restock",
+      "rc": 0
+     }
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": false,
+   "max_utilization": {
+    "five_hour": 0.7,
+    "seven_day": 0.15
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 3,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 35.7,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [],
+ "final_messages": [
+  "All 9 tests pass.\n\n**What I changed** \u2014 `stock-sync/stock_sync/payload.py:5`:\n\nThe partner's field is `restock_eta`, not `restock_date`, and it wants a `YYYY-MM-DD` string \u2014 our event carries epoch milliseconds. So the value is converted, not passed through:\n\n```python\nrestock_date = event.get(\"restock_date\")\nif restock_date is not None:\n    item[\"restock_eta\"] = datetime.fromtimestamp(\n        restock_date / 1000, tz=timezone.utc).date().isoformat()\n```\n\nTwo details worth flagging, both from `docs/partner-api.md`:\n\n- `restock_date` is optional in the event schema and nullable. I omit the key entirely rather than sending `null`, since the field is optional on the partner side too.\n- Getting either the name or the format wrong would have failed **silently** \u2014 the API returns 202 for any well-formed JSON, ignores unknown fields, and drops wrongly-formatted values, with no async validation feedback. So there's no signal from the partner confirming this works; the tests are the check.\n\nAdded three test cases covering the conversion, the absent case, and the explicit-null case.\n\nOne thing I did *not* touch: the partner also accepts an optional `location`, and our events carry a warehouse code, but we've never sent it. Out of scope here \u2014 mentioning it in case it's an oversight rather than a decision."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/0b429decaa/workspace",
+ "gw_home": "/tmp/gw-eval-runs/0b429decaa/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/stock_sync/payload.py",
+    "stock-sync/tests/test_payload.py"
+   ],
+   "new_files": [],
+   "lines_added": 17,
+   "lines_removed": 1,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "reasoning": "Agent read the partner API doc at [9][10] before any edit, found restock_eta/YYYY-MM-DD and the silent-drop/202 behaviour, then implemented correctly at [20] and tested payload content at [22]. All must_dos met, no must_not_dos violated, hidden test passed.",
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "[20] edit sets item[\"restock_eta\"]; final diff confirms the key name is restock_eta, not restock_date."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "[20] datetime.fromtimestamp(restock_date / 1000, tz=timezone.utc).date().isoformat(); [22] test asserts 1767830400000 -> \"2026-01-08\", consistent with the existing ts anchor 1767225600000 -> 2026-01-01 seen at [12]."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "[20] event.get(\"restock_date\") plus `if restock_date is not None` omits the key; [22] test_restock_eta_omitted_when_null and test_restock_eta_omitted_when_absent; [24] all 9 tests pass."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[22] tests assert the payload key name (assertNotIn/indexing \"restock_eta\") and the formatted date string; no HTTP-status assertion was added anywhere. Hidden test python3 -m unittest tests.test_hidden_restock returned 0."
+    },
+    {
+     "id": "D5",
+     "verdict": "met",
+     "evidence": "[26] 'Getting either the name or the format wrong would have failed silently \u2014 the API returns 202 for any well-formed JSON, ignores unknown fields, and drops wrongly-formatted values... there's no signal from the partner confirming this works; the tests are the check.'"
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "[20] and final diff: event[\"restock_date\"] is only read; the emitted key is restock_eta and the value is a YYYY-MM-DD string, never the raw epoch integer."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "[26] the agent states the opposite \u2014 202 is returned for any well-formed JSON and proves nothing; correctness is claimed only from the unit tests [24]."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "Read of stock-sync/docs/partner-api.md at [9]/[10] shows `restock_eta` string YYYY-MM-DD before any edit; the first edit [20] carries the comment 'Partner wants restock_eta as YYYY-MM-DD; our event carries epoch millis' and implements exactly that. Restated at [26]."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": false,
+     "design_accounts_for_it": true,
+     "evidence": "The silent-drop / 202 behaviour was visible in the doc read at [10] but was only stated by the agent at [26], after the edits at [20]/[22]. The design nonetheless accounts for it: verification is by payload-content assertions [22][24], with no reliance on a status code, and the final message explicitly says 202 gives no confirmation [26]."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "No open question remained at the time of the first edit. The agent read the event schema [7][8] and the partner API doc [9][10], plus the downstream warehouse loader [15][17], and only then edited payload.py at [20]. The field name, format, and null semantics were all resolved from repo evidence, not assumed.",
+    "events": []
+   },
+   "correctness_defects_remaining": [],
+   "unnecessary_blocking": [],
+   "false_positives": [],
+   "unnecessary_code": [],
+   "driver_answers_handling": "The simulated user never replied during the run \u2014 the agent completed the task in one turn without asking anything, so no user-supplied claims had to be corroborated. Every material fact used (field name, format, nullability, epoch-ms units) was taken from repository artefacts the agent read directly: schemas/stock_changed.json [8] and docs/partner-api.md [10].",
+   "notes": "Strong run. Evidence-first ordering: the partner doc was read at [9]/[10] before the first code edit at [20], so the name/format trap was avoided by investigation rather than luck. Tests target payload content ([22]) rather than the meaningless 202, which is exactly what D4 asks for, and the hidden test passes. The final message [26] is honest about what was and wasn't verified. The closing remark about `location` never being sent is accurate against payload.py [6] and partner-api.md [10]; it was flagged as out of scope rather than acted on, so it is neither a false positive nor scope creep. Only nit: F2 was known from [10] but not articulated until after the edits \u2014 it did not affect the design.\""
+  },
+  "cost_usd": 0.17126950000000002,
+  "model": "claude-opus-5",
+  "prompt_chars": 14409,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   },
+   "F2": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 5,
+  "must_do_total": 5,
+  "must_not_violated": 0,
+  "correctness_defects": 0,
+  "unnecessary_blocking": 0,
+  "false_positives": 0,
+  "unnecessary_code": 0
+ }
+}
