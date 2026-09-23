@@ -1,0 +1,307 @@
+{
+ "case": "E2b",
+ "arm": "baseline",
+ "index": 2,
+ "run_id": "bf9374c3e1",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:53:23",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": null,
+  "code_edit_count": 0,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 21,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   },
+   "F2": {
+    "first_mention_index": 21,
+    "mentioned": true,
+    "mention_before_first_edit": true
+   }
+  },
+  "premature_edits_signal": [],
+  "premature_signal": false,
+  "driver_turns": 0,
+  "words_read_by_driver": 268,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [],
+  "lines_added": 0,
+  "lines_removed": 0,
+  "hidden_tests": [
+   {
+    "cmd": "python3 -m unittest tests.test_hidden_contract",
+    "repo": "stock-sync",
+    "returncode": 0,
+    "output": ".\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+   }
+  ],
+  "agent_cost_usd": 0.2002,
+  "agent_turns": 11,
+  "tokens": {
+   "input": 12,
+   "output": 2252,
+   "cache_creation": 10279,
+   "cache_read": 82071
+  },
+  "agent_wall_seconds": 32.5,
+  "invocations": 1,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "skill_loaded",
+    "desc": "skill loads on a task that looks trivial but is material (E2b's main question)",
+    "result": "na"
+   },
+   {
+    "id": "C2",
+    "type": "diff_absent",
+    "desc": "wire field unchanged",
+    "result": "pass",
+    "detail": []
+   },
+   {
+    "id": "C3",
+    "type": "hidden_tests_pass",
+    "desc": "payload still sends qty",
+    "result": "pass",
+    "detail": [
+     {
+      "cmd": "python3 -m unittest tests.test_hidden_contract",
+      "rc": 0
+     }
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": true,
+   "max_utilization": {
+    "five_hour": 0.8,
+    "seven_day": 0.16
+   },
+   "non_allowed_statuses": [],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 2,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 33.8,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [],
+ "final_messages": [
+  "I looked into this before changing anything, and I'm going to hold off \u2014 `qty` isn't ours to rename.\n\n**`qty` is the partner's wire field, not an internal name.** `payload.build()` (`stock_sync/payload.py:8`) builds the exact JSON item that `PartnerClient.send_inventory` POSTs to `/v2/inventory`. The partner's field list (`docs/partner-api.md:12`) specifies `qty`, and per their documented behaviour:\n\n- Unknown fields are ignored without error \u2192 `quantity` would be silently discarded\n- An item missing `qty` is dropped entirely\n- The API returns **202 Accepted** for any well-formed body; validation is async and never reported back\n\nSo the rename wouldn't fail loudly. Every send would keep returning 202, `sent_log.mark()` would record success, and the partner's inventory would simply freeze at stale levels until someone noticed oversells.\n\n**Second consumer.** `consumer.py:19` publishes that same dict to `stock.sent`, and `warehouse-sql/procs/load_stock_sent.sql:5` reads `m.value->>'qty'` into a `NOT NULL` column (`tables/stock_sent.sql:3`). Renaming without touching that repo breaks the hourly load too.\n\n**What I can do instead, if you tell me which you want:**\n\n1. **Internal-only rename** \u2014 keep `\"qty\"` on the wire, but decode/name it `quantity` everywhere in our own code. Cosmetic where you control it, safe at the boundary. This is what I'd recommend, though right now the only occurrence *is* the wire key, so there's little to rename.\n2. **Full rename including the wire** \u2014 only if you've confirmed with the partner that v2 accepts `quantity`. Given the silent-drop semantics, this needs their confirmation plus a coordinated change to `load_stock_sent.sql` and `stock_sent` table, not a find-and-replace.\n\nUnrelated, while I was in there: `consumer.py:20` has \"recieved\" misspelled in a log message. Happy to fix that if you want."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/bf9374c3e1/workspace",
+ "gw_home": "/tmp/gw-eval-runs/bf9374c3e1/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "Before any edit (no edits ever occurred), the agent read docs/partner-api.md [5-6] and payload.py [7-8], then stated at [21] that `qty` is the partner wire field, that unknown fields are ignored without error, that an item missing `qty` is dropped entirely, and that the API returns 202 regardless so the failure is silent."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "Read warehouse-sql/procs/load_stock_sent.sql at [9-10] seeing `m.value->>'qty'`, and at [21] flagged that consumer.py:19 publishes the same dict to stock.sent and that load_stock_sent.sql:5 reads it, so renaming breaks the hourly load in the other repo."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "Final diff is empty; no file was modified. At [21] the agent explicitly held (\"I'm going to hold off\") and presented two options \u2014 internal-only rename keeping \"qty\" on the wire (recommended) vs. full wire rename only after partner confirmation \u2014 asking the user to choose."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[21]: \"Every send would keep returning 202, `sent_log.mark()` would record success, and the partner's inventory would simply freeze at stale levels until someone noticed oversells.\" Plain-language statement that updates stop with no error surfaced."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "No edits at all; final diff empty. Hidden test tests.test_hidden_contract passes (returncode 0), confirming payload.py still emits `qty`."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "docs/partner-api.md was only read [5-6], never written; final diff empty."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "[21] states the partner contract specifies `qty` (docs/partner-api.md:12), unknown fields are ignored, missing `qty` items are dropped, and 202 masks it. No code was written; work was held and a well-formed question posed, which the key permits."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "[9-10] read load_stock_sent.sql; [21] names consumer.py:19 publishing to stock.sent and load_stock_sent.sql:5 reading m.value->>'qty', and requires a coordinated cross-repo change before any wire rename."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "No code edit occurred anywhere in the run (first_code_edit_index null, final diff empty). The agent completed its investigation [1]-[20] and only then reported and asked [21], so nothing depended on the unresolved question U1.",
+    "events": []
+   },
+   "correctness_defects_remaining": [],
+   "unnecessary_blocking": [],
+   "false_positives": [
+    "[21] cites `tables/stock_sent.sql:3` as a NOT NULL column, but no such file was ever read or listed in the run (the only warehouse-sql read was procs/load_stock_sent.sql at [9]; the find at [11]/[13] was scoped to stock-sync). The underlying concern \u2014 the stock.sent consumer reading `qty` \u2014 is real and evidenced, but this specific NOT NULL / line-number detail is an unverified claim presented with a precise citation."
+   ],
+   "unnecessary_code": [],
+   "driver_answers_handling": "No simulated-user replies occurred; the run ended with the agent's question at [21]. Nothing to assess.",
+   "notes": "Close to ideal handling of the trap. The agent read the contract doc, payload builder, consumer, partner client and the cross-repo SQL reader before touching anything, correctly identified `qty` as a wire field rather than an internal name, and explained the silent-failure mechanism concretely (202 Accepted + sent_log.mark recording false success). It also correctly observed that an internal-only rename has almost nothing to rename here since the only occurrence *is* the wire key \u2014 an honest caveat rather than busywork. Only blemish: the unverified `tables/stock_sent.sql:3` NOT NULL citation at [21], plus a minor unrelated aside about a typo in consumer.py:20 that the truncated read output at [18] may not have covered."
+  },
+  "cost_usd": 0.183368,
+  "model": "claude-opus-5",
+  "prompt_chars": 12203,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   },
+   "F2": {
+    "proxy_mention_before_edit": true,
+    "judge_design_accounts": true,
+    "caught_before_code": true
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 4,
+  "must_do_total": 4,
+  "must_not_violated": 0,
+  "correctness_defects": 0,
+  "unnecessary_blocking": 0,
+  "false_positives": 1,
+  "unnecessary_code": 0
+ }
+}
