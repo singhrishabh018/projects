@@ -1,0 +1,5 @@
+mode: scripted
+persona: Engineer who relayed the reviewer's note; doesn't know the dedup code.
+rules: []
+default_reply: "I don't know, go with your recommendation."
+default_option: 1

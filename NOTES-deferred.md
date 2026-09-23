@@ -3,8 +3,12 @@
 Anything here needs a v0.1 result that justifies it (spec §13, v0.2).
 
 ## Eval
-- **TypeSafe/Jev as an optional eval-scoring layer.** Try at M3 behind an env flag (e.g. `GW_EVAL_JEV=1`). Never a dependency of the skill or harness, never gates material decisions or pass/fail.
+- **TypeSafe/Jev as an optional eval-scoring layer.** Not built at M3: the harness's own judge covers the scoring §12.4 needs, and nothing so far shows a gap it would fill. If added later: behind an env flag (e.g. `GW_EVAL_JEV=1`), as an extra report column only. Never a dependency of the skill or harness, never gates material decisions or pass/fail.
 - **Task-blind research (C4 variant).** Goal hidden during fact-finding. Run as an eval variant only if v0.1 results show goal-anchored research misses things.
+
+- **Blind judging.** The judge can usually tell the arm (triage lines, store notes). Stripping those would need rewriting the transcript; only worth it if judge verdicts look arm-biased.
+- **Size-check script** (M0 §4 mentioned one). Dropped: sizes were measured by hand at M2 and accepted; no budget is enforced.
+- **Practical check in the daily host (Cursor)** is manual and lives in the root README, not in the harness.
 
 ## Companions
 - **save-token-jev** (MIT, github.com/IAmUnbounded/save-token-jev-clean) — suggested companion for context compaction. Mention in README; don't rebuild.

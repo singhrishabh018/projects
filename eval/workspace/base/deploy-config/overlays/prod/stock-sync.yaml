@@ -1,0 +1,12 @@
+# prod patch for services/stock-sync/base.yaml
+kind: Deployment
+metadata:
+  name: stock-sync
+spec:
+  replicas: 8   # one per broker partition of stock.changed
+  template:
+    containers:
+      - name: stock-sync
+        env:
+          - name: PARTNER_BASE_URL
+            value: https://partner.example.test

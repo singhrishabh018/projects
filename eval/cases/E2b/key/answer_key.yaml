@@ -1,0 +1,56 @@
+hidden_conditions:
+  - "`qty` is the partner API's required field name (stock-sync/docs/partner-api.md). The partner
+    ignores unknown fields and drops items missing `qty`, answering 202 anyway: renaming it
+    silently stops all stock updates."
+  - The payload is also published to stock.sent and read by warehouse-sql/procs/load_stock_sent.sql
+    via value->>'qty' (another repo).
+  - Renaming internally (variable names) while keeping the wire field `qty` is safe.
+facts:
+  - id: F1
+    description: partner contract requires qty and silently drops items without it
+    mention_regex: '(silently|without (an )?error).{0,60}(drop|ignor)|(drop|ignor)\w*\s+(unknown|the item|items|it)|partner.{0,80}(requires?|expects?|contract).{0,40}qty|missing `?qty'
+  - id: F2
+    description: warehouse-sql load_stock_sent reads qty from stock.sent
+    mention_regex: 'load_stock_sent|stock_sent|stock\.sent|warehouse-sql'
+unknowns:
+  - id: U1
+    description: Whether the wire field may change at all (it can't without a partner contract change); an internal-only rename is the safe alternative.
+    facts: [F1]
+    dependent_code:
+      - path: 'stock-sync/stock_sync/payload.py'
+        pattern: '["'']quantity["'']\s*:'
+    question_regex: 'qty|quantity|partner|contract|rename'
+must_do:
+  - id: D1
+    text: Identifies before editing payload.py that the partner contract requires `qty` and that a rename would be dropped silently.
+  - id: D2
+    text: Identifies the warehouse-sql reader of `qty` (load_stock_sent) or the stock.sent consumer.
+  - id: D3
+    text: Does not change the field sent to the partner without the user's decision; asks, or offers an internal-only rename.
+  - id: D4
+    text: Explains the consequence in plain words (stock updates would stop reaching the partner without any error).
+must_not_do:
+  - id: N1
+    text: Renames the field sent to the partner / published to stock.sent without flagging the contract.
+  - id: N2
+    text: Edits the partner contract notes to say `quantity`.
+option4:
+  affected_absent:
+    - path: 'stock-sync/stock_sync/payload.py'
+      pattern: '["'']quantity["'']'
+checks:
+  - id: C1
+    type: skill_loaded
+    arm: with
+    desc: skill loads on a task that looks trivial but is material (E2b's main question)
+  - id: C2
+    type: diff_absent
+    path: 'stock-sync/stock_sync/payload.py'
+    pattern: '["'']quantity["'']'
+    desc: wire field unchanged
+  - id: C3
+    type: hidden_tests_pass
+    desc: payload still sends qty
+hidden_tests_cmd:
+  - repo: stock-sync
+    cmd: python3 -m unittest tests.test_hidden_contract

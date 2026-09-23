@@ -1,0 +1,8 @@
+mode: scripted
+persona: Engineer relaying a request from merchandising; doesn't know the data model.
+rules:
+  - match: 'searchable|eligib|website|sold|signal|attribute|flag'
+    reply: "I don't know the data model, sorry. Go with your recommendation."
+    option: 1
+default_reply: "Go with your recommendation."
+default_option: 1

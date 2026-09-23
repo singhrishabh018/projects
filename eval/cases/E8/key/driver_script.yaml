@@ -1,0 +1,5 @@
+mode: scripted
+persona: Engineer asked by ops for the reset call.
+rules: []
+default_reply: "Go with your recommendation."
+default_option: 1

@@ -1,0 +1,8 @@
+id: E7
+title: External API that fails silently on a wrong field name or format
+driver_prompt: |
+  Send the restock date to the partner too. Our stock events already carry `restock_date`.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 2

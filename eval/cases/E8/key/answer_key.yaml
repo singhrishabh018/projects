@@ -1,0 +1,33 @@
+hidden_conditions:
+  - stock_sync/partner_client.py has PartnerClient._request with auth header, base URL, timeout and
+    retry/backoff. The reset call should be a small method using it.
+  - tests/fake_partner.py is the existing fake for partner calls.
+facts:
+  - id: F1
+    description: PartnerClient._request exists and should be reused
+    mention_regex: '_request|PartnerClient'
+must_do:
+  - id: D1
+    text: Adds the reset as a method on PartnerClient (or a function that uses it) calling _request("POST", "/v2/locations/<code>/reset").
+  - id: D2
+    text: Adds a test in the existing style using FakePartner.
+  - id: D3
+    text: Runs the tests.
+must_not_do:
+  - id: N1
+    text: Writes new HTTP code (urllib/requests/http.client) outside PartnerClient._request.
+  - id: N2
+    text: Adds a new retry/backoff helper.
+  - id: N3
+    text: Builds a CLI, script framework, or config that wasn't asked for.
+checks:
+  - id: C1
+    type: diff_absent
+    path: 'stock-sync/*'
+    pattern: 'urlopen|urllib\.request\.Request|requests\.(post|get|Session)|http\.client|time\.sleep|backoff'
+    desc: no duplicate HTTP/retry code
+  - id: C2
+    type: hidden_tests_pass
+hidden_tests_cmd:
+  - repo: stock-sync
+    cmd: python3 -m unittest tests.test_hidden_reset

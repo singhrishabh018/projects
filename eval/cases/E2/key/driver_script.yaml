@@ -1,0 +1,5 @@
+mode: scripted
+persona: Engineer who wants the typo fixed.
+rules: []
+default_reply: "Just fix the typo, please."
+default_option: 1

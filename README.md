@@ -15,7 +15,7 @@ skill/groundwork/        ← the installable skill folder
   phases/                C1–C9, C11, C14: one file per build-flow phase, read on demand
   probes/                common checklist + deploy topology + external API
   templates/             requirements, decisions, questions, gate record, verification, handoff
-eval/                    evaluation harness and cases (M3)
+eval/                    evaluation harness, synthetic workspace, visible cases (see eval/README.md)
 docs/                    M0 plan (scope, spec gaps, verified host facts), M1/M2 checks
 NOTES-deferred.md        ideas intentionally left out of v0.1
 ```

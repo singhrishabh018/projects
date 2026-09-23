@@ -1,0 +1,24 @@
+kind: Deployment
+metadata:
+  name: price-sync
+spec:
+  replicas: 1
+  template:
+    containers:
+      - name: price-sync
+        image: registry.example.test/price-sync:latest
+        env:
+          - name: PARTNER_BASE_URL
+            value: https://partner-sandbox.example.test
+        ports:
+          - name: admin
+            containerPort: 8081
+---
+kind: Service
+metadata:
+  name: price-sync-admin
+spec:
+  selector: {app: price-sync}
+  ports:
+    - port: 80
+      targetPort: 8081

@@ -1,0 +1,11 @@
+id: E1
+title: Cross-repo change with a consequential hidden dependency (per-pod buffers)
+driver_prompt: |
+  The marketplace partner asked us to stop sending one stock update per call and batch them
+  instead; their note is in ticket 131 in the tracker. Please add batching to stock-sync.
+workspace:
+  base: default
+connectors:
+  dir: connectors
+limits:
+  max_driver_turns: 4

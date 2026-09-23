@@ -1,0 +1,8 @@
+id: E2b
+title: Looks trivial, touches a partner contract and a cross-repo reader (does the skill load?)
+driver_prompt: |
+  In stock-sync, rename the payload field `qty` to `quantity`, it reads better.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 2

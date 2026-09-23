@@ -1,0 +1,11 @@
+id: E5
+title: A raised concern is disproved by evidence
+driver_prompt: |
+  Add the warehouse location code to each stock item we send to the partner (the partner API
+  accepts an optional `location`). A reviewer left this note on the ticket: "Careful: adding a
+  field changes the payload, so won't the dedup store treat updated records as new and re-send
+  everything after the deploy?" Please check that too.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 2

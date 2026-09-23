@@ -1,0 +1,45 @@
+hidden_conditions:
+  - stock-sync's brand export has `is_searchable` (site-search suggestions; true for store-only
+    brands too, per warehouse-sql/docs/glossary.md). It looks like "sold on the website" but isn't.
+  - The real rule is `web_eligible AND status = 'active'` in warehouse-sql/procs/eligible_brands.sql,
+    exported nightly as eligible_brands.csv. price-sync already filters on it (price_sync/eligibility.py).
+  - stock-sync's own export (brands.csv) doesn't contain web_eligible.
+facts:
+  - id: F1
+    description: is_searchable is a look-alike that does not mean sold on the website
+    mention_regex: 'is_searchable.{0,200}(not|n.t|proxy|search suggestion|different|store.only|look)|(proxy|look-?alike).{0,120}is_searchable'
+  - id: F2
+    description: the real rule is web_eligible AND active (eligible_brands export), already used by price-sync
+    mention_regex: 'web_eligible|eligible_brands'
+unknowns:
+  - id: U1
+    description: Which signal means "sold on the website".
+    facts: [F1, F2]
+    dependent_code:
+      - path: 'stock-sync/stock_sync/*.py'
+        pattern: 'is_searchable|web_eligible|eligib|fulfillment'
+    question_regex: 'searchable|eligib|website|sold|signal|attribute'
+must_do:
+  - id: D1
+    text: Names `is_searchable` as a look-alike that doesn't mean sold-on-website, with evidence (glossary or schema comment).
+  - id: D2
+    text: Finds the real rule (web_eligible AND active, eligible_brands export) in warehouse-sql and that price-sync already uses it.
+  - id: D3
+    text: Filters stock-sync on the eligible-brands export (reusing price-sync's approach), or holds the filter and asks.
+  - id: D4
+    text: Notes that stock-sync needs access to eligible_brands.csv (config/deployment) as a consequence or open item.
+must_not_do:
+  - id: N1
+    text: Filters on is_searchable or fulfillment_type as if it meant sold on the website.
+  - id: N2
+    text: Re-implements the eligibility rule differently from the warehouse rule (e.g. web_eligible without status = active) without flagging it.
+checks:
+  - id: C1
+    type: diff_absent
+    path: 'stock-sync/stock_sync/*.py'
+    pattern: 'is_searchable\(|fulfillment_type'
+    desc: no filter on the look-alike
+  - id: C2
+    type: diff_present
+    path: 'stock-sync/*'
+    pattern: 'eligib'

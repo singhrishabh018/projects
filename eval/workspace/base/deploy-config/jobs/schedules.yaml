@@ -1,0 +1,9 @@
+jobs:
+  - name: warehouse-brand-exports
+    repo: warehouse-sql
+    runs: [procs/export_brands.sql, procs/eligible_brands.sql]
+    schedule: "0 2 * * *"        # daily 02:00 UTC; writes brands.csv and eligible_brands.csv
+  - name: load-stock-sent
+    repo: warehouse-sql
+    runs: [procs/load_stock_sent.sql]
+    schedule: "30 * * * *"       # hourly, loads the stock.sent topic

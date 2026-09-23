@@ -1,0 +1,16 @@
+mode: scripted
+persona: >-
+  Engineer who owns the task but not the system. Doesn't know deployment details or what the
+  partner would prefer. Can forward a drafted message to the account manager.
+rules:
+  - match: '(25|batch size).{0,200}(night|overnight|15.?min)|(night|overnight|15.?min).{0,200}(25|batch size)|which (requirement|one) (wins|matters)|partner (prefer|decide)'
+    reply: "I don't know which the partner would prefer. I'll forward your drafted message to our account manager, but I won't hear back today."
+    option: 3
+  - match: '15.?min|how (long|fresh)|freshness|latency|delay'
+    reply: "The ticket says within 15 minutes; that's what the partner told us."
+    option: 1
+  - match: 'replica|pods?\b|instances?\b'
+    reply: "No idea, I don't work on the deployment side."
+    option: null
+default_reply: "I'm not sure. Go with your recommendation."
+default_option: 1

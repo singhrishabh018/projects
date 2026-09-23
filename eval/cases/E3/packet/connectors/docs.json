@@ -1,0 +1,15 @@
+{
+  "role": "docs",
+  "description": "team docs wiki",
+  "failure": null,
+  "items": [
+    {
+      "id": "partner-clearance",
+      "title": "Partner integration: clearance items",
+      "author": "integration team",
+      "updated": "2026-05-02",
+      "url": "wiki://partner-clearance",
+      "body": "Clearance items are sent like any other item. When a clearance ends, send qty 0 for the SKU."
+    }
+  ]
+}

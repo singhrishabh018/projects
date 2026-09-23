@@ -1,0 +1,8 @@
+id: E2
+title: Simple, local task (guard mode only)
+driver_prompt: |
+  Fix the typo "recieved" in the log message in stock-sync/stock_sync/consumer.py.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 2

@@ -1,0 +1,14 @@
+{
+  "title": "price.changed event",
+  "type": "object",
+  "properties": {
+    "event_id": {"type": "string"},
+    "sku": {"type": "string"},
+    "brand": {"type": "string", "description": "brand_id"},
+    "price": {"type": "string", "description": "decimal as string"},
+    "currency": {"type": "string"},
+    "clearance": {"type": "boolean"},
+    "ts": {"type": "integer", "description": "event time, epoch milliseconds UTC"}
+  },
+  "required": ["event_id", "sku", "brand", "price", "currency", "ts"]
+}

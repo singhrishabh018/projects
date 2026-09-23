@@ -1,0 +1,9 @@
+id: E9
+title: Yes-to-everything driver on a task with hidden per-pod state and a schedule
+driver_prompt: |
+  Add an admin endpoint to price-sync that reloads the eligible-brands list, so merchandising
+  doesn't have to wait for a restart after they change which brands we sell online.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 4

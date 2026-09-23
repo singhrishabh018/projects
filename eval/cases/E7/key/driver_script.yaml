@@ -1,0 +1,5 @@
+mode: scripted
+persona: Engineer who wants the restock date sent; doesn't know the partner contract.
+rules: []
+default_reply: "Go with your recommendation."
+default_option: 1

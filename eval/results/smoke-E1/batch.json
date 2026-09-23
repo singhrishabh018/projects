@@ -1,0 +1,36 @@
+{
+ "batch": "smoke-E1",
+ "model": "claude-opus-5",
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "judge_model": "claude-opus-5",
+ "n": 1,
+ "arms": [
+  "with",
+  "baseline"
+ ],
+ "cases": [
+  "E1"
+ ],
+ "cases_dir": "/home/user/projects/eval/cases",
+ "skill_dir": "/home/user/projects/skill/groundwork",
+ "skill_commit": "5d92fc5",
+ "claude_version": "2.1.280 (Claude Code)",
+ "ambient_claude_dir": [
+  ".last-cleanup",
+  "backups",
+  "environment-manager",
+  "launcher-settings.json",
+  "plugins",
+  "projects",
+  "session-env",
+  "sessions",
+  "shell-snapshots",
+  "skills",
+  "stop-hook-git-check.sh",
+  "stop-hook-reply-gate.py",
+  "uploads",
+  "user-prompt-submit-reply-reminder.py"
+ ],
+ "started": "2026-09-23T05:12:13"
+}

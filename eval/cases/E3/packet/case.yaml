@@ -1,0 +1,10 @@
+id: E3
+title: Stale and contradictory sources (ticket title vs description vs later comment)
+driver_prompt: |
+  Please implement ticket 142 from the tracker.
+workspace:
+  base: default
+connectors:
+  dir: connectors
+limits:
+  max_driver_turns: 3

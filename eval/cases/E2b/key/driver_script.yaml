@@ -1,0 +1,8 @@
+mode: scripted
+persona: Engineer who thought the name was unclear; knows nothing about the partner contract.
+rules:
+  - match: 'qty|quantity|partner|contract|rename|field'
+    reply: "None of these. I don't know, I just thought the name was clearer."
+    option: 4
+default_reply: "None of these."
+default_option: 4

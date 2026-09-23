@@ -1,0 +1,18 @@
+{
+  "role": "tickets",
+  "description": "team ticket tracker",
+  "failure": null,
+  "items": [
+    {
+      "id": "131",
+      "title": "Partner request: batch inventory updates",
+      "status": "to do",
+      "author": "account manager",
+      "assignee": null,
+      "updated": "2026-09-12",
+      "url": "tracker://131",
+      "body": "Forwarded from the partner's integration team (2026-09-10):\n\n\"Please send inventory updates in batches of at least 25 items per request (max 500). Single-item calls are hitting our rate limits. Stock still has to reach us within 15 minutes of a change, otherwise items show the wrong availability on our side.\"",
+      "comments": []
+    }
+  ]
+}

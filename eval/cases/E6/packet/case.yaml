@@ -1,0 +1,9 @@
+id: E6
+title: Proxy trap (look-alike attribute vs the real filter in another repo)
+driver_prompt: |
+  We should only send stock updates for brands that are sold on our website. Add that filter
+  to stock-sync.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 3

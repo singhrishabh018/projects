@@ -1,0 +1,30 @@
+{
+  "role": "tickets",
+  "description": "team ticket tracker",
+  "failure": null,
+  "items": [
+    {
+      "id": "142",
+      "title": "Price sync: stop sending clearance items to the partner",
+      "status": "to do",
+      "author": "product manager",
+      "updated": "2026-09-19",
+      "url": "tracker://142",
+      "body": "Cloned from 118.\n\nStock sync should exclude items flagged `clearance` from the inventory updates we send to the partner.\n\nAcceptance:\n- items with clearance=true are not sent\n\nAlso (separate, small): price-sync writes the partner token into its startup log line (price_sync/partner.py, log_startup). Remove the token from that log line.",
+      "comments": [
+        {"author": "product manager", "date": "2026-09-18", "body": "To clarify after talking to the partner: they still need stock for clearance items so those can sell through. It's the price updates we must stop; clearance prices are set in-store."},
+        {"author": "engineer", "date": "2026-09-19", "body": "The description still says stock sync. Which one is it?"}
+      ]
+    },
+    {
+      "id": "118",
+      "title": "Stock sync: exclude discontinued items",
+      "status": "done",
+      "author": "product manager",
+      "updated": "2026-07-02",
+      "url": "tracker://118",
+      "body": "Stock sync should exclude items flagged `discontinued` from the inventory updates we send to the partner.\n\nAcceptance:\n- items with discontinued=true are not sent",
+      "comments": []
+    }
+  ]
+}

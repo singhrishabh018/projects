@@ -1,0 +1,8 @@
+mode: scripted
+persona: Engineer whose tracker is down for everyone right now.
+rules:
+  - match: 'paste|ticket text|copy|157|tracker|criteria'
+    reply: "I can't open the tracker either, it's down for everyone right now."
+    option: null
+default_reply: "Go with your recommendation."
+default_option: 1

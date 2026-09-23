@@ -1,0 +1,20 @@
+kind: Deployment
+metadata:
+  name: stock-sync
+spec:
+  replicas: 1
+  template:
+    containers:
+      - name: stock-sync
+        image: registry.example.test/stock-sync:latest
+        env:
+          - name: PARTNER_BASE_URL
+            value: https://partner-sandbox.example.test
+          - name: SENT_LOG_PATH
+            value: /var/lib/stock-sync/sent.db
+        volumeMounts:
+          - name: sent-log
+            mountPath: /var/lib/stock-sync
+    volumes:
+      - name: sent-log
+        persistentVolumeClaim: {claimName: stock-sync-sent-log}

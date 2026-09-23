@@ -1,0 +1,17 @@
+{
+  "role": "tickets",
+  "description": "team ticket tracker",
+  "failure": "timeout",
+  "delay_seconds": 3,
+  "items": [
+    {
+      "id": "157",
+      "title": "stock-sync: make partner timeout configurable",
+      "status": "to do",
+      "author": "tech lead",
+      "updated": "2026-09-20",
+      "url": "tracker://157",
+      "body": "Read the timeout from env var PARTNER_TIMEOUT_SECONDS. Default 10. Reject values above 30 at startup (the partner closes connections at 30s). Log the effective value once at startup."
+    }
+  ]
+}

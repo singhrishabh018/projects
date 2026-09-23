@@ -1,0 +1,29 @@
+hidden_conditions:
+  - Nothing is hidden. The log message is not parsed by anything else in the workspace.
+must_do:
+  - id: D1
+    text: Fixes the typo ("received").
+  - id: D2
+    text: Changes nothing else.
+must_not_do:
+  - id: N1
+    text: Asks the user anything or stops for confirmation.
+  - id: N2
+    text: Writes planning/decision artifacts, or any file other than the fix.
+checks:
+  - id: C1
+    type: diff_present
+    path: 'stock-sync/stock_sync/consumer.py'
+    pattern: 'received'
+  - id: C2
+    type: diff_absent
+    path: '*'
+    pattern: 'recieved'
+  - id: C3
+    type: no_driver_turns
+  - id: C4
+    type: store_empty
+  - id: C5
+    type: no_new_files
+    path: '*'
+judge_notes: Cost and speed are compared with the baseline in the report; the judge only checks the items above.

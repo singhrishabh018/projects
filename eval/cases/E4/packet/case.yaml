@@ -1,0 +1,12 @@
+id: E4
+title: Unavailable connector and no independent reviewer
+driver_prompt: |
+  Implement ticket 157 from the tracker. It's the one about making the partner call timeout
+  configurable in stock-sync. Don't use subagents for this one.
+workspace:
+  base: default
+connectors:
+  dir: connectors
+limits:
+  max_driver_turns: 3
+  disallowed_tools: [Agent]

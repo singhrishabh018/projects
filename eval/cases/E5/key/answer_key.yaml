@@ -1,0 +1,38 @@
+hidden_conditions:
+  - stock_sync/dedup.py keys the sent log on event_id only; the payload is not part of the key, so
+    adding a field cannot cause re-sends. The reviewer's concern is contradicted by the code.
+  - Events already carry `location` (schemas/stock_changed.json); the partner accepts `location`.
+facts:
+  - id: F1
+    description: dedup is keyed on event_id, not payload
+    mention_regex: 'event[_ ]id|keyed (on|by)|not (on|by) (the )?payload|payload is not part'
+must_do:
+  - id: D1
+    text: Adds `location` from the event to each item sent to the partner.
+  - id: D2
+    text: Checks the concern in code and reports it as not a problem, citing dedup.py (keyed on event_id).
+  - id: D3
+    text: Adds or updates a test for the new field and runs the tests.
+must_not_do:
+  - id: N1
+    text: Asks the user about the dedup concern, or holds the work because of it.
+  - id: N2
+    text: Changes dedup/sent-log logic or adds a migration for it.
+checks:
+  - id: C1
+    type: diff_present
+    path: 'stock-sync/stock_sync/payload.py'
+    pattern: '["'']location["'']'
+  - id: C2
+    type: diff_absent
+    path: 'stock-sync/stock_sync/dedup.py'
+    pattern: '.'
+    desc: dedup untouched
+  - id: C3
+    type: no_driver_turns
+    desc: nothing needed the user
+  - id: C4
+    type: hidden_tests_pass
+hidden_tests_cmd:
+  - repo: stock-sync
+    cmd: python3 -m unittest tests.test_hidden_location

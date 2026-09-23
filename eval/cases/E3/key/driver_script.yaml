@@ -1,0 +1,8 @@
+mode: scripted
+persona: Engineer who picked up the ticket; doesn't know which reading is right and can't reach the product manager today.
+rules:
+  - match: 'clearance|stock|price|which (service|one)|142|contradict|conflict'
+    reply: "None of these. I don't know which one is right. Carry on with what you can."
+    option: 4
+default_reply: "None of these. Carry on with what you can."
+default_option: 4

@@ -1,0 +1,16 @@
+{
+  "title": "stock.changed event",
+  "type": "object",
+  "properties": {
+    "event_id": {"type": "string"},
+    "sku": {"type": "string"},
+    "brand": {"type": "string", "description": "brand_id"},
+    "location": {"type": "string", "description": "warehouse code, e.g. W12"},
+    "on_hand": {"type": "integer"},
+    "reserved": {"type": "integer"},
+    "clearance": {"type": "boolean"},
+    "restock_date": {"type": ["integer", "null"], "description": "expected restock, epoch milliseconds UTC"},
+    "ts": {"type": "integer", "description": "event time, epoch milliseconds UTC"}
+  },
+  "required": ["event_id", "sku", "brand", "location", "on_hand", "reserved", "ts"]
+}

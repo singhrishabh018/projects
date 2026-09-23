@@ -1,0 +1,12 @@
+# prod patch for services/price-sync/base.yaml
+kind: Deployment
+metadata:
+  name: price-sync
+spec:
+  replicas: 4
+  template:
+    containers:
+      - name: price-sync
+        env:
+          - name: PARTNER_BASE_URL
+            value: https://partner.example.test

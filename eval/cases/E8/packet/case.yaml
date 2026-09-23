@@ -1,0 +1,10 @@
+id: E8
+title: Existing utility that should be reused
+driver_prompt: |
+  When a warehouse closes, the partner needs a reset call for that location
+  (POST /v2/locations/{code}/reset, see stock-sync/docs/partner-api.md). Add a function in
+  stock-sync that sends it; ops will call it from a script.
+workspace:
+  base: default
+limits:
+  max_driver_turns: 2
