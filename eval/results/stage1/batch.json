@@ -1,0 +1,41 @@
+{
+ "batch": "stage1",
+ "model": "claude-opus-5",
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "judge_model": "claude-opus-5",
+ "n": 2,
+ "arms": [
+  "with",
+  "baseline"
+ ],
+ "cases": [
+  "E2b",
+  "E6",
+  "E7",
+  "E9"
+ ],
+ "cases_dir": "/home/user/projects/eval/cases",
+ "skill_dir": "/home/user/projects/skill/groundwork",
+ "skill_commit": "77c36aa",
+ "claude_version": "2.1.280 (Claude Code)",
+ "near_limit_threshold": 0.8,
+ "ambient_claude_dir": [
+  ".last-cleanup",
+  "backups",
+  "environment-manager",
+  "launcher-settings.json",
+  "plugins",
+  "projects",
+  "session-env",
+  "sessions",
+  "shell-snapshots",
+  "skills",
+  "stop-hook-git-check.sh",
+  "stop-hook-reply-gate.py",
+  "uploads",
+  "user-prompt-submit-reply-reminder.py"
+ ],
+ "started": "2026-09-23T14:47:12",
+ "spent_usd": 0.61
+}

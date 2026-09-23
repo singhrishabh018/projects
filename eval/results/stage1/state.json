@@ -1,0 +1,87 @@
+{
+ "slots": {
+  "E2b/baseline-1": {
+   "attempts": 1,
+   "cost_usd": 0.512,
+   "near_limit": false,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T14:48:31"
+  },
+  "E2b/baseline-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E2b/with-1": {
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:47:18"
+  },
+  "E2b/with-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E6/baseline-1": {
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:48:31"
+  },
+  "E6/baseline-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E6/with-1": {
+   "attempts": 1,
+   "status": "running",
+   "updated": "2026-09-23T14:47:18"
+  },
+  "E6/with-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E7/baseline-1": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E7/baseline-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E7/with-1": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E7/with-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E9/baseline-1": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E9/baseline-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E9/with-1": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  },
+  "E9/with-2": {
+   "attempts": 0,
+   "status": "pending",
+   "updated": "2026-09-23T14:47:12"
+  }
+ }
+}
