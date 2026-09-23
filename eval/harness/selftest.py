@@ -57,6 +57,12 @@ def use(i, name, inp, who=None):
         {"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}})
 def say(text):
     out({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}})
+if os.environ.get("STUB_LIMIT"):
+    say("You've hit your session limit · resets 9am (UTC)")
+    out({"type": "result", "subtype": "success", "is_error": True,
+         "result": "You've hit your session limit · resets 9am (UTC)", "session_id": "stub-sid",
+         "total_cost_usd": 0.0, "num_turns": 1, "duration_ms": 10, "usage": {}})
+    sys.exit(0)
 if not resume:
     if add_dir:
         use(1, "Skill", {"skill": "groundwork"})
@@ -210,6 +216,17 @@ def main():
         l = json.load(open(os.path.join(out_dir, "b2", "DUMMY-OK", "baseline-1", "run.json")))
         results.append(check(not l["audit"]["valid"], f"audit invalidates a run that touched key material: {l['audit']['hits'][:1]}"))
         del ws_names
+
+        env = dict(os.environ, STUB_LIMIT="1")
+        p = subprocess.run(base + ["--batch", "b3", "--n", "2"], capture_output=True, text=True, env=env)
+        done = [d for d in os.listdir(os.path.join(out_dir, "b3", "DUMMY-OK"))]
+        lr = json.load(open(os.path.join(out_dir, "b3", "DUMMY-OK", done[0], "run.json")))
+        results.append(check(lr["aborted"] and not lr["valid"] and "judge" not in lr and len(done) < 4
+                             and "usage limit" in p.stdout,
+                             f"usage-limit cutoff: run aborted, not judged, batch stopped ({len(done)}/4 runs started)"))
+        summ = open(os.path.join(out_dir, "b3", "summary.md")).read()
+        results.append(check("ABORTED DUMMY-OK" in summ and "## DUMMY-OK" not in summ,
+                             "aborted runs listed and excluded from tables"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"\n{sum(results)}/{len(results)} checks passed")

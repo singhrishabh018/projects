@@ -144,8 +144,14 @@ How to judge:
 
 def judge(case, run, tl, claude_bin, model, config_dir, cwd):
     prompt = build_prompt(case, run, tl)
-    obj, res = claude_cli.oneshot_json(claude_bin, prompt, model, config_dir, cwd, SCHEMA,
-                                       timeout_s=900)
-    return {"verdict": obj, "cost_usd": float((res or {}).get("total_cost_usd") or 0),
+    cost = 0.0
+    for _attempt in range(2):  # one retry: a judge failure shouldn't lose the run's scoring
+        obj, res = claude_cli.oneshot_json(claude_bin, prompt, model, config_dir, cwd, SCHEMA,
+                                           timeout_s=900)
+        cost += float((res or {}).get("total_cost_usd") or 0)
+        if obj:
+            break
+    return {"verdict": obj, "cost_usd": cost,
             "model": model, "prompt_chars": len(prompt),
-            "error": None if obj else (res or {}).get("error", "no structured output")}
+            "error": None if obj else ((res or {}).get("error") or (res or {}).get("result")
+                                      or "no structured output")}

@@ -39,6 +39,22 @@ DEFAULT_SKILL = os.path.join(REPO_DIR, "skill", "groundwork")
 DEFAULT_RUNS_ROOT = os.environ.get("GW_EVAL_RUNS", "/tmp/gw-eval-runs")
 
 _lock = threading.Lock()
+_stop = threading.Event()  # set when the account hits a usage limit: schedule no more runs
+
+# The CLI reports an exhausted plan/usage limit as a normal-looking final message.
+LIMIT_RE = re.compile(r"hit your (\w+ )?limit|usage limit|rate limit|limit .{0,20}resets", re.I)
+
+
+def aborted_reason(result):
+    """Why an invocation result can't be scored (None if it can)."""
+    if result is None:
+        return "no result event"
+    text = result.get("result") or ""
+    if LIMIT_RE.search(text) and len(text) < 300:
+        return "usage limit: " + text.strip()[:120]
+    if result.get("api_error_status"):
+        return f"API error {result.get('api_error_status')}"
+    return None
 
 
 def log(msg):
@@ -161,6 +177,7 @@ def run_one(case, arm, idx, args, batch_dir):
     msg, sid = case.prompt, None
     invocations, results, dturns, notes = [], [], [], []
     spent, t0 = 0.0, time.time()
+    aborted = None
     for k in range(lim["max_driver_turns"] + 1):
         left = min(lim["max_budget_usd"], args.max_run_usd) - spent
         if left < 0.25:
@@ -184,6 +201,13 @@ def run_one(case, arm, idx, args, batch_dir):
             break
         spent += float(result.get("total_cost_usd") or 0)
         sid = result.get("session_id") or sid
+        why = aborted_reason(result)
+        if why:
+            aborted = why
+            notes.append(f"invocation {k} aborted: {why}")
+            if why.startswith("usage limit"):
+                _stop.set()
+            break
         if result.get("is_error"):
             notes.append(f"invocation {k} ended with {result.get('subtype')}")
             break
@@ -216,6 +240,7 @@ def run_one(case, arm, idx, args, batch_dir):
     m["driver_cost_usd"] = round(drv.cost, 4)
 
     run = {"case": case.id, "arm": arm, "index": idx, "run_id": run_id, "model": args.model,
+           "aborted": aborted, "valid": aud["valid"] and not aborted,
            "effort": args.effort, "driver_model": args.driver_model,
            "started": datetime.datetime.fromtimestamp(t0).isoformat(timespec="seconds"),
            "notes": notes, "audit": aud, "metrics": m, "driver_turns": dturns,
@@ -237,7 +262,7 @@ def run_one(case, arm, idx, args, batch_dir):
     if os.path.exists(os.path.join(root, "mcp-calls.jsonl")):
         shutil.copy(os.path.join(root, "mcp-calls.jsonl"), out_dir)
 
-    if not args.no_judge:
+    if not args.no_judge and not aborted:
         j = score.judge(case, run, tl, args.claude_bin, args.judge_model,
                         _judge_profile(root), root)
         run["judge"] = j
@@ -248,7 +273,8 @@ def run_one(case, arm, idx, args, batch_dir):
     total = m["agent_cost_usd"] + m["driver_cost_usd"] + (run.get("judge") or {}).get("cost_usd", 0)
     log(f"{case.id} {arm}-{idx}: agent ${m['agent_cost_usd']:.2f} total ${total:.2f} "
         f"turns={m['agent_turns']} driver_turns={m['driver_turns']} skill={m['skill_loaded']} "
-        f"phases={m['phase_files_read']} valid={aud['valid']}")
+        f"phases={m['phase_files_read']} valid={run['valid']}"
+        + (f" ABORTED ({aborted})" if aborted else ""))
     return run, total
 
 
@@ -357,7 +383,7 @@ def cmd_run(args):
         it = iter(jobs)
         while True:
             while len(pending) < args.jobs:
-                if spent >= args.max_total_usd:
+                if spent >= args.max_total_usd or _stop.is_set():
                     break
                 job = next(it, None)
                 if job is None:
@@ -375,6 +401,9 @@ def cmd_run(args):
                     log(f"{job[0].id} {job[1]}-{job[2]} FAILED: {e!r}")
                     _write_json(os.path.join(batch_dir, job[0].id, f"{job[1]}-{job[2]}", "error.json"),
                                 {"error": repr(e)})
+    if _stop.is_set():
+        log("stopped: the account hit a usage limit; remaining runs were not started. "
+            "Re-run the missing ones later with --case/--arm/--n and a new --batch.")
     if spent >= args.max_total_usd:
         log(f"stopped: batch spend ${spent:.2f} reached --max-total-usd {args.max_total_usd}")
     meta["finished"] = datetime.datetime.now().isoformat(timespec="seconds")

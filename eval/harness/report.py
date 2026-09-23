@@ -58,12 +58,14 @@ def write(batch_dir):
                f"Spent ${meta.get('spent_usd', '?')}.")
     out.append("")
     out.append("Invalid runs (audit hit: agent reached key material, the eval repo or another run) "
-               "are listed but excluded from every table.")
+               "and aborted runs (usage limit, API error) are listed but excluded from every table.")
     out.append("")
-    invalid = [r for r in runs if not r["audit"]["valid"]]
-    for r in invalid:
-        out.append(f"- INVALID {r['case']} {r['arm']}-{r['index']}: {r['audit']['hits'][:3]}")
-    runs_ok = [r for r in runs if r["audit"]["valid"]]
+    for r in runs:
+        if not r["audit"]["valid"]:
+            out.append(f"- INVALID {r['case']} {r['arm']}-{r['index']}: {r['audit']['hits'][:3]}")
+        elif r.get("aborted"):
+            out.append(f"- ABORTED {r['case']} {r['arm']}-{r['index']}: {r['aborted']}")
+    runs_ok = [r for r in runs if r["audit"]["valid"] and not r.get("aborted")]
     by = summarize(runs_ok)
 
     rows = [("n", lambda rs: str(len(rs))),
