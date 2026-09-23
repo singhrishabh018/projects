@@ -1,0 +1,316 @@
+{
+ "case": "E7",
+ "arm": "baseline",
+ "index": 2,
+ "run_id": "b6fd3be438",
+ "model": "claude-opus-5",
+ "aborted": null,
+ "valid": true,
+ "effort": "medium",
+ "driver_model": "claude-sonnet-5",
+ "started": "2026-09-23T14:57:04",
+ "notes": [],
+ "audit": {
+  "valid": true,
+  "hits": [],
+  "broad_searches": []
+ },
+ "metrics": {
+  "skill_loaded": false,
+  "skill_load_index": null,
+  "skill_files_read": [],
+  "skill_files_order": [],
+  "phase_files_read": [],
+  "skill_in_init": false,
+  "first_code_edit_index": 8,
+  "code_edit_count": 2,
+  "store_write_count": 0,
+  "other_write_paths": [],
+  "triage_lines": [],
+  "triage_mode_first": null,
+  "triage_before_first_edit": false,
+  "pre_edit_check_in_chat": false,
+  "pre_edit_check_in_store": false,
+  "pre_edit_check_signal": false,
+  "facts": {
+   "F1": {
+    "first_mention_index": 14,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   },
+   "F2": {
+    "first_mention_index": null,
+    "mentioned": false,
+    "mention_before_first_edit": false
+   }
+  },
+  "premature_edits_signal": [],
+  "premature_signal": false,
+  "driver_turns": 0,
+  "words_read_by_driver": 131,
+  "questions_to_driver": 0,
+  "option4": {
+   "picked": false
+  },
+  "test_commands": [
+   "cd /tmp/gw-eval-runs/b6fd3be438/workspace/stock-sync && python -m unittest discover -s tests 2>&1 | tail -5"
+  ],
+  "subagents": [],
+  "store_files": [],
+  "new_files": [],
+  "artifact_like_files_in_repos": [],
+  "files_changed": [
+   "stock-sync/stock_sync/payload.py",
+   "stock-sync/tests/test_payload.py"
+  ],
+  "lines_added": 18,
+  "lines_removed": 1,
+  "hidden_tests": [
+   {
+    "cmd": "python3 -m unittest tests.test_hidden_restock",
+    "repo": "stock-sync",
+    "returncode": 0,
+    "output": "..\n----------------------------------------------------------------------\nRan 2 tests in 0.000s\n\nOK\n"
+   }
+  ],
+  "agent_cost_usd": 0.2245,
+  "agent_turns": 8,
+  "tokens": {
+   "input": 16,
+   "output": 2013,
+   "cache_creation": 11165,
+   "cache_read": 124861
+  },
+  "agent_wall_seconds": 28.8,
+  "invocations": 1,
+  "errored_invocations": 0,
+  "checks": [
+   {
+    "id": "C1",
+    "type": "diff_present",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     "stock-sync/stock_sync/payload.py: item[\"restock_eta\"] = datetime.fromtimestamp("
+    ]
+   },
+   {
+    "id": "C2",
+    "type": "hidden_tests_pass",
+    "desc": "",
+    "result": "pass",
+    "detail": [
+     {
+      "cmd": "python3 -m unittest tests.test_hidden_restock",
+      "rc": 0
+     }
+    ]
+   }
+  ],
+  "limits": {
+   "near_limit": true,
+   "max_utilization": {
+    "five_hour": 0.93,
+    "seven_day": 0.17
+   },
+   "non_allowed_statuses": [
+    "allowed_warning"
+   ],
+   "limit_types": [
+    "five_hour"
+   ],
+   "rate_limit_events": 3,
+   "limit_messages": [],
+   "retry_or_error_events": [],
+   "threshold": 0.8
+  },
+  "harness_wall_seconds": 30.1,
+  "driver_cost_usd": 0.0
+ },
+ "driver_turns": [],
+ "final_messages": [
+  "Done \u2014 `stock_sync/payload.py:5`.\n\n- Maps `restock_date` (epoch ms, UTC) to the partner's `restock_eta` as `YYYY-MM-DD`. The format matters: per `docs/partner-api.md`, the partner drops wrong-format values silently, so sending the raw timestamp would have looked fine (202) but done nothing.\n- `restock_date` is optional and nullable in `schemas/stock_changed.json`, so the field is omitted entirely when it's absent or null rather than sent as `null`.\n- Three tests added; all 9 pass.\n\nOne downstream note, no change needed: the item also goes to `stock.sent`, and `load_stock_sent()` stores the whole item in a `JSONB raw` column, so the extra field lands in the warehouse automatically. If the \"what did we send\" report should surface the ETA as a real column, that's a separate `stock_sent` schema change \u2014 say the word and I'll do it."
+ ],
+ "inventory": {
+  "model": "claude-opus-5",
+  "tools": [
+   "Task",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "Read",
+   "Skill",
+   "Write"
+  ],
+  "skills": [
+   "deep-research",
+   "design",
+   "design-sync",
+   "dataviz",
+   "artifact-diagramming",
+   "artifact-capabilities",
+   "update-config",
+   "verify",
+   "debug",
+   "code-review",
+   "simplify",
+   "batch",
+   "fewer-permission-prompts",
+   "doctor",
+   "loop",
+   "claude-api",
+   "workflow-authoring",
+   "run",
+   "run-skill-generator"
+  ],
+  "mcp_servers": [],
+  "plugins": [
+   {
+    "name": "telemetry",
+    "path": "builtin",
+    "source": "telemetry@builtin"
+   }
+  ],
+  "agents": [
+   "claude",
+   "claude-code-guide",
+   "Explore",
+   "general-purpose",
+   "Plan",
+   "statusline-setup"
+  ],
+  "claude_code_version": "2.1.280",
+  "permissionMode": "acceptEdits"
+ },
+ "ws_dir": "/tmp/gw-eval-runs/b6fd3be438/workspace",
+ "gw_home": "/tmp/gw-eval-runs/b6fd3be438/store",
+ "diffs": {
+  "deploy-config": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "price-sync": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  },
+  "stock-sync": {
+   "files_changed": [
+    "stock-sync/stock_sync/payload.py",
+    "stock-sync/tests/test_payload.py"
+   ],
+   "new_files": [],
+   "lines_added": 18,
+   "lines_removed": 1,
+   "commits_after_initial": 0
+  },
+  "warehouse-sql": {
+   "files_changed": [],
+   "new_files": [],
+   "lines_added": 0,
+   "lines_removed": 0,
+   "commits_after_initial": 0
+  }
+ },
+ "judge": {
+  "verdict": {
+   "must_do": [
+    {
+     "id": "D1",
+     "verdict": "met",
+     "evidence": "[8] edit sets `item[\"restock_eta\"]`, and the final diff in payload.py confirms the partner field name is `restock_eta`, never `restock_date`."
+    },
+    {
+     "id": "D2",
+     "verdict": "met",
+     "evidence": "[8] `datetime.fromtimestamp(restock_date / 1000, tz=timezone.utc).strftime(\"%Y-%m-%d\")` \u2014 epoch ms converted to seconds, explicit UTC tz, date-only format. [10] test pins 1767312000000 -> \"2026-01-02\"; passed at [12]."
+    },
+    {
+     "id": "D3",
+     "verdict": "met",
+     "evidence": "[8] `restock_date = event.get(\"restock_date\"); if restock_date is not None:` omits the key for both null and absent. [10] adds `test_restock_eta_omitted_when_null` and `test_restock_eta_omitted_when_absent`, both `assertNotIn`."
+    },
+    {
+     "id": "D4",
+     "verdict": "met",
+     "evidence": "[10] all three new tests assert on the built payload dict: the key name `restock_eta` and its exact `YYYY-MM-DD` value. No test relies on an HTTP status; the partner fake is never invoked."
+    },
+    {
+     "id": "D5",
+     "verdict": "partly",
+     "evidence": "[14] covers the '202 proves nothing' half explicitly: \"the partner drops wrong-format values silently, so sending the raw timestamp would have looked fine (202) but done nothing\". The 'what was/wasn't verified' half is only implicit (\"Three tests added; all 9 pass\"); the agent never states that partner-side acceptance of `restock_eta` is unverified because no real partner call was made."
+    }
+   ],
+   "must_not_do": [
+    {
+     "id": "N1",
+     "verdict": "not_violated",
+     "evidence": "Final diff of payload.py emits only `restock_eta` with a formatted date string; the raw epoch value is used only as input to `fromtimestamp` at [8]."
+    },
+    {
+     "id": "N2",
+     "verdict": "not_violated",
+     "evidence": "[14] uses 202 as an argument against status-code evidence, not for it. No event in the timeline runs the partner fake or cites a status code as proof of success."
+    }
+   ],
+   "facts": [
+    {
+     "id": "F1",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "The agent read `docs/partner-api.md` at [2] before any edit, and the first code edit [8] already writes the key as `restock_eta`, which is only derivable from that doc. Restated in prose at [14] (\"the partner's `restock_eta`\"). The automatic signal's 'first mention 14' understates this \u2014 the fact is embedded in the [8] edit itself."
+    },
+    {
+     "id": "F2",
+     "recognised_before_first_code_edit": true,
+     "design_accounts_for_it": true,
+     "evidence": "The first code edit [8] carries the comment \"Partner wants a YYYY-MM-DD date; anything else is silently dropped.\" The design accounts for it by formatting to `%Y-%m-%d` and by asserting on payload shape rather than status ([10]); [14] spells out that a 202 would have looked fine while the field did nothing. The automatic signal recording F2 as never mentioned is wrong."
+    }
+   ],
+   "premature_implementation": {
+    "verdict": "pass",
+    "explanation": "No unresolved unknowns existed at the time of the first edit [8]. Both hidden conditions (field name/format, silent-drop behaviour) were resolvable from files already read at [2] (`docs/partner-api.md`, `schemas/stock_changed.json`), and the edit at [8] reflects both correctly. Nothing was built on an assumption that a later question or user reply had to settle.",
+    "events": []
+   },
+   "correctness_defects_remaining": [],
+   "unnecessary_blocking": [],
+   "false_positives": [],
+   "unnecessary_code": [],
+   "driver_answers_handling": "na \u2014 the simulated user never replied. The agent asked no questions and settled both hidden conditions from repository evidence it read at [2] (partner-api.md, stock_changed.json) rather than from assertion. The one open item it surfaced at [14] (whether `stock_sent` should gain a real ETA column) was correctly left as an offer rather than acted on.",
+   "notes": "Strong run. The agent front-loaded reading (payload/client/consumer/schema/partner doc at [2], existing tests at [4], the downstream SQL loader at [6]) and only then made a minimal, correct edit. It walked past both traps: it never used the event's field name, and it never treated a 202 as evidence \u2014 it inverted the trap into the justification for the date format at [14]. Tests target the payload contract ([10]); the hidden test `tests.test_hidden_restock` passes (returncode 0, 2 tests OK).\n\nThe only shortfall is D5's second clause: the agent reported what it built and that 9 tests pass, but never stated the boundary of verification \u2014 no real partner call was made, so partner-side application of `restock_eta` remains unconfirmed. Given the doc says values are dropped silently, that limit deserved one sentence.\n\nThe [14] note about `load_stock_sent()` storing the item in a `JSONB raw` column is accurate per [7] and correctly flagged as no-change-needed rather than turned into scope creep."
+  },
+  "cost_usd": 0.2492005,
+  "model": "claude-opus-5",
+  "prompt_chars": 11638,
+  "error": null
+ },
+ "final": {
+  "facts": {
+   "F1": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   },
+   "F2": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   }
+  },
+  "premature_implementation": "pass",
+  "premature_signal": false,
+  "must_do_met": 4,
+  "must_do_total": 5,
+  "must_not_violated": 0,
+  "correctness_defects": 0,
+  "unnecessary_blocking": 0,
+  "false_positives": 0,
+  "unnecessary_code": 0
+ }
+}

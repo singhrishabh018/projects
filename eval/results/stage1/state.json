@@ -74,8 +74,11 @@
   },
   "E7/baseline-2": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:57:04"
+   "cost_usd": 0.4737,
+   "near_limit": true,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T14:58:41"
   },
   "E7/with-1": {
    "attempts": 1,
