@@ -1,6 +1,16 @@
 # Groundwork v0.1 — M0 Build Plan
 
-Status: proposal, awaiting go-ahead. Nothing below is built yet except this file and `NOTES-deferred.md`.
+Status: **approved 2026-09-23** with the amendments in §0. Nothing below is built yet except this file and `NOTES-deferred.md`.
+
+## 0. Checkpoint answers and corrections (M0 review)
+
+- **Guard trigger:** approved; bias toward loading when uncertain. New case **E2b**: task that *looks* trivial but touches something material (cross-repo or contract) — measures whether the skill loads at all. E2 keeps measuring cost on genuinely trivial tasks.
+- **Pushing:** allowed to `build/*` branches of the private `projects` repo at each checkpoint. Never `main`, no PRs, no other repos. The groundwork history is pushed as its own branch (`build/groundwork`), unrelated to `main`.
+- **Model/budget:** same explicit `--model` for both arms; single-run smoke test and measured cost reported before any batch; ~$6 per-run cap; if the set is expensive, reduce to n=2, never drop cases.
+- **Daily host:** Cursor. Hands-on check = skill loads from the global location, guard rules appear, a phase file loads when a heavy task starts.
+- **Correction A — baseline confound.** The baseline is "current setup minus Groundwork", not "no skill". **Tested:** `CLAUDE_CONFIG_DIR=<empty dir>` gives a clean profile here — auth still works, user and synced skills (`session-start-hook`, nine `anthropic-skills:*`) disappear, built-in bundled skills remain, and `--add-dir` still loads a skill (canary printed). The harness uses a fresh empty `CLAUDE_CONFIG_DIR` per run for both arms and records the run's skill/tool/MCP/plugin inventory from the `system/init` event (plus a listing of the ambient `~/.claude`) in every result. Built-in skills that remain are listed as part of the baseline.
+- **Correction B — named proxy in the eval.** "First edit after first mention of the planted fact" is a **proxy** for "caught before code": mentioning a fact is not acting on it. It stays as a cheap automatic signal, but the scorer must separately verify that the decision/design (or the code, for the baseline) actually accounts for the fact. A run counts as "caught before code" only if both hold. The eval is held to the same standard as the skill (G3).
+
 Spec: `groundwork-spec.md` v0.3 + the post-v0.3 decisions in the build brief (O2, O5, non-expert driver, learning never gates, lightweight, private use, O8, no third-party API, deferred notes, O13 held-out format).
 
 Legend for claims in this doc: **verified** = I read the current doc page or ran it here today (2026-09-23); **inferred** = reasoning, not tested; **unverified** = could not check.
@@ -27,8 +37,8 @@ Legend for claims in this doc: **verified** = I read the current doc page or ran
 | C11 concise handoff | Implementation spec separate from background and from the execution prompt; receiver restates scope and open unknowns first. |
 | Connectors C14.1–C14.3 | Use whatever MCP tools exist, by role, read-only, with provenance; missing/failed → `unknown` + gate record + paste fallback. |
 | Probes: `common` + what evals need | A generic probe checklist, plus only the stack probes the visible cases exercise. |
-| Evaluation §12 incl. held-out | Visible cases E1–E8 + E9, with/without skill, n≥3, automatic scoring where possible, separate scorer that alone sees the answer key; pluggable loader for external held-out cases. |
-| One repeatable host + practical check in daily host | Repeatable runs in Claude Code headless; a short manual check in Cursor (the user's daily host — **inferred**, please confirm). |
+| Evaluation §12 incl. held-out | Visible cases E1–E8 + E2b + E9, with/without skill, n≥3, automatic scoring where possible, separate scorer that alone sees the answer key; pluggable loader for external held-out cases. |
+| One repeatable host + practical check in daily host | Repeatable runs in Claude Code headless; a short manual check in Cursor (confirmed as the daily host). |
 
 ---
 
@@ -144,6 +154,7 @@ Fictional "catalog sync" system, 4 tiny repos (Python, so no build toolchain is 
 |---|---|---|
 | E1 | Per-pod in-memory buffer; `deploy-config` sets replicas=8; size-only flush | Replica fact found and recorded **before first edit**; design flushes on time too, or question drafted |
 | E2 | Rename a log message in one file | No store artifacts; cost/time ≤ ~1.3× baseline; no questions |
+| E2b | Looks trivial ("rename field `qty` to `quantity` in the stock payload") but the field is part of the partner contract and read by another repo | Skill loads (triage line present); contract/cross-repo impact surfaced before the edit |
 | E3 | Ticket title vs description vs doc disagree on scope | Contradiction listed; not silently picked; independent work proceeds |
 | E4 | Ticket connector times out; no subagent reviewer allowed | Gate record; affected claims `unknown`; paste fallback offered; no "reviewed/passed" claim |
 | E5 | Ticket worries about duplicate sends; code already dedups by id | Concern marked `contradicted` with evidence; no question to driver; proceeds |
@@ -166,13 +177,13 @@ Fictional "catalog sync" system, 4 tiny repos (Python, so no build toolchain is 
 `--cases-dir <path>` points the loader at any folder of cases in this shape (held-out plugs in here). The loader validates the shape and never copies `key/` into the run workspace.
 
 ### 5.4 Run protocol
-- Each run: fresh temp copy of the workspace (git-initialised), fresh `GROUNDWORK_HOME`, same `--model`, same MCP fixture server, `--max-turns` and `--max-budget-usd` caps, parent session env vars unset.
-- Arms: **with** (`--add-dir` skill root) and **baseline** (none). n = 3 per arm per case → 54 agent runs.
+- Each run: fresh temp copy of the workspace (git-initialised), fresh `GROUNDWORK_HOME`, fresh empty `CLAUDE_CONFIG_DIR`, same `--model`, same MCP fixture server, `--max-turns` and `--max-budget-usd` caps, parent session env vars unset.
+- Arms: **with** (`--add-dir` skill root) and **baseline** (none). n = 3 per arm per case → 60 agent runs (10 cases incl. E2b); n=2 fallback if the smoke test shows it's expensive.
 - Driver loop: when the agent's turn ends with a question, a separate `claude -p` driver-sim (sees only `driver_script.yaml` + the agent's last message) replies; harness `--resume`s. Max 4 driver turns.
 - Transcripts via `stream-json` so we know the order of events (e.g. first file edit vs first mention of the planted fact).
 
 ### 5.5 Scoring
-- **Automatic** (from transcript, diff, store): first-edit timestamp vs first mention of planted fact (regex list per case), files changed, new modules/helpers (E8), store artifacts present (E2), gate-record present (E4), forbidden strings like "passed"/"reviewed" without independence (E4), tests run, cost, turns, wall time, driver turns.
+- **Automatic** (from transcript, diff, store): first-edit timestamp vs first mention of planted fact (regex list per case) — a *named proxy*, see §0 B; the judge confirms the design actually accounts for it, files changed, new modules/helpers (E8), store artifacts present (E2), gate-record present (E4), forbidden strings like "passed"/"reviewed" without independence (E4), tests run, cost, turns, wall time, driver turns.
 - **Judge** (separate `claude -p` with `--json-schema`, sees answer key + transcript + diff, never runs in the agent context): must_do / must_not_do per item, CORRECTNESS defects remaining, unnecessary blocking, false positives, unnecessary code.
 - Integrity: any agent access to a `key/` path or the held-out folder invalidates the run (grep of tool calls).
 - Report: per-run raw JSON + per-case table with/without, means and spread; no aggregate "score" that hides per-case results.
