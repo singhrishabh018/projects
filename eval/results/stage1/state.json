@@ -121,12 +121,12 @@
    "updated": "2026-09-23T14:55:19"
   },
   "E9/with-2": {
-   "attempts": 1,
-   "cost_usd": 1.537,
-   "near_limit": true,
-   "reason": "usage limit: You've hit your session limit \u00b7 resets 7pm (UTC)",
-   "status": "aborted",
-   "updated": "2026-09-23T15:00:38"
+   "attempts": 2,
+   "cost_usd": 1.9404,
+   "near_limit": false,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-24T00:24:57"
   }
  }
 }

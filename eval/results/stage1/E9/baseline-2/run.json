@@ -34,14 +34,14 @@
   "pre_edit_check_signal": false,
   "facts": {
    "F1": {
-    "first_mention_index": 37,
+    "first_mention_index": 35,
     "mentioned": true,
     "mention_before_first_edit": false
    },
    "F2": {
-    "first_mention_index": 37,
+    "first_mention_index": 24,
     "mentioned": true,
-    "mention_before_first_edit": false
+    "mention_before_first_edit": true
    }
   },
   "premature_edits_signal": [
@@ -50,18 +50,18 @@
     "edit_index": 24,
     "path": "price-sync/price_sync/eligibility.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": false,
-    "signal": true
+    "signal": false
    },
    {
     "unknown": "U1",
     "edit_index": 26,
     "path": "price-sync/price_sync/admin.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": false,
-    "signal": true
+    "signal": false
    },
    {
     "unknown": "U2",
@@ -137,7 +137,58 @@
    "threshold": 0.8
   },
   "harness_wall_seconds": 89.7,
-  "driver_cost_usd": 0.0
+  "driver_cost_usd": 0.0,
+  "facts_pre_2026-09-24_proxy_fix": {
+   "F1": {
+    "first_mention_index": 37,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   },
+   "F2": {
+    "first_mention_index": 37,
+    "mentioned": true,
+    "mention_before_first_edit": false
+   }
+  },
+  "premature_edits_signal_pre_2026-09-24_proxy_fix": [
+   {
+    "unknown": "U1",
+    "edit_index": 24,
+    "path": "price-sync/price_sync/eligibility.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": false,
+    "signal": true
+   },
+   {
+    "unknown": "U1",
+    "edit_index": 26,
+    "path": "price-sync/price_sync/admin.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": false,
+    "signal": true
+   },
+   {
+    "unknown": "U2",
+    "edit_index": 24,
+    "path": "price-sync/price_sync/eligibility.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": false,
+    "signal": true
+   },
+   {
+    "unknown": "U2",
+    "edit_index": 26,
+    "path": "price-sync/price_sync/admin.py",
+    "invocation": 0,
+    "before_fact_mention": true,
+    "same_turn_ends_asking": false,
+    "signal": true
+   }
+  ],
+  "premature_signal_pre_2026-09-24_proxy_fix": true
  },
  "driver_turns": [],
  "final_messages": [
@@ -322,9 +373,9 @@
     "caught_before_code": false
    },
    "F2": {
-    "proxy_mention_before_edit": false,
+    "proxy_mention_before_edit": true,
     "judge_design_accounts": true,
-    "caught_before_code": false
+    "caught_before_code": true
    }
   },
   "premature_implementation": "pass",
@@ -335,6 +386,18 @@
   "correctness_defects": 4,
   "unnecessary_blocking": 0,
   "false_positives": 0,
-  "unnecessary_code": 0
+  "unnecessary_code": 0,
+  "facts_pre_2026-09-24_proxy_fix": {
+   "F1": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   },
+   "F2": {
+    "proxy_mention_before_edit": false,
+    "judge_design_accounts": true,
+    "caught_before_code": false
+   }
+  }
  }
 }
