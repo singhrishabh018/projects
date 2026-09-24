@@ -106,8 +106,11 @@
   },
   "E9/baseline-2": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:58:06"
+   "cost_usd": 0.8016,
+   "near_limit": true,
+   "reason": null,
+   "status": "done",
+   "updated": "2026-09-23T15:01:17"
   },
   "E9/with-1": {
    "attempts": 1,
@@ -119,8 +122,11 @@
   },
   "E9/with-2": {
    "attempts": 1,
-   "status": "running",
-   "updated": "2026-09-23T14:57:30"
+   "cost_usd": 1.537,
+   "near_limit": true,
+   "reason": "usage limit: You've hit your session limit \u00b7 resets 7pm (UTC)",
+   "status": "aborted",
+   "updated": "2026-09-23T15:00:38"
   }
  }
 }

@@ -1,0 +1,167 @@
+
+diff --git a/price-sync/README.md b/price-sync/README.md
+index 28b4d78..f100cd4 100644
+--- a/price-sync/README.md
++++ b/price-sync/README.md
+@@ -4,4 +4,24 @@ Consumes `price.changed` events and pushes prices to the marketplace partner's p
+ Only brands that are eligible for the website are sent; the eligible list comes from the
+ nightly warehouse export `eligible_brands.csv` (see `warehouse-sql/procs/eligible_brands.sql`).
+ 
++## Admin endpoints
++
++Served on `ADMIN_PORT` (8081), fronted by the `price-sync-admin` service.
++
++- `GET /healthz`
++- `POST /admin/reload-eligible-brands` — re-reads `eligible_brands.csv` so brand changes
++  take effect without restarting the service. Responds `{"status": "reloaded",
++  "eligible_brands": <count>}`, or 500 if the export can't be read, in which case the
++  previously loaded list stays in effect.
++
++Two things to know before relying on it:
++
++- It reloads the **export file**, not the warehouse. A `web_eligible` change made by
++  merchandising only reaches the file when `export_eligible_brands()` next runs (nightly,
++  02:00 UTC — see `deploy-config/jobs/schedules.yaml`), so re-run that export first,
++  then call this endpoint.
++- It reloads **one replica**. prod runs 4, and the admin service load-balances across them,
++  so a single call leaves the others on the old list. Call it until every replica reports
++  the expected `eligible_brands` count, or restart the deployment instead.
++
+ Run tests: `python -m unittest discover -s tests`
+diff --git a/price-sync/price_sync/admin.py b/price-sync/price_sync/admin.py
+index 4a65bb5..b8e6999 100644
+--- a/price-sync/price_sync/admin.py
++++ b/price-sync/price_sync/admin.py
+@@ -1,15 +1,33 @@
+-"""Tiny admin HTTP server (health check). Exposed through the service's load balancer."""
++"""Tiny admin HTTP server (health check, reload). Exposed through the service's load balancer."""
+ import http.server
+ import json
++import logging
+ 
+-from . import config
++from . import config, eligibility
++
++log = logging.getLogger(__name__)
+ 
+ 
+ def healthz():
+     return 200, {"status": "ok"}
+ 
+ 
+-ROUTES = {("GET", "/healthz"): healthz}
++def reload_eligible_brands():
++    """Re-read the eligible_brands export so brand changes apply without a restart."""
++    try:
++        brands = eligibility.load()
++    except Exception as exc:
++        log.exception("reloading eligible brands from %s failed", config.ELIGIBLE_BRANDS_CSV)
++        return 500, {"error": "reload failed", "detail": str(exc)}
++    log.info("reloaded %d eligible brands from %s", len(brands), config.ELIGIBLE_BRANDS_CSV)
++    return 200, {"status": "reloaded", "source": config.ELIGIBLE_BRANDS_CSV,
++                 "eligible_brands": len(brands)}
++
++
++ROUTES = {
++    ("GET", "/healthz"): healthz,
++    ("POST", "/admin/reload-eligible-brands"): reload_eligible_brands,
++}
+ 
+ 
+ class Handler(http.server.BaseHTTPRequestHandler):
+diff --git a/price-sync/price_sync/eligibility.py b/price-sync/price_sync/eligibility.py
+index 61b5c02..7cf18c0 100644
+--- a/price-sync/price_sync/eligibility.py
++++ b/price-sync/price_sync/eligibility.py
+@@ -1,6 +1,7 @@
+ """Which brands may be sent to the partner: the warehouse's eligible_brands export.
+ 
+-Loaded once when the process starts. The export is regenerated nightly by the warehouse.
++Loaded when the process starts, and again on demand via the admin endpoint
++`POST /admin/reload-eligible-brands`. The export is regenerated nightly by the warehouse.
+ """
+ import csv
+ 
+@@ -10,9 +11,11 @@ _eligible = None
+ 
+ 
+ def load(path=None):
++    """Re-read the export. On failure the previously loaded list is left in place."""
+     global _eligible
+     with open(path or config.ELIGIBLE_BRANDS_CSV, newline="") as f:
+-        _eligible = {row["brand_id"] for row in csv.DictReader(f)}
++        loaded = {row["brand_id"] for row in csv.DictReader(f)}
++    _eligible = loaded
+     return _eligible
+ 
+ 
+diff --git a/price-sync/tests/test_admin.py b/price-sync/tests/test_admin.py
+new file mode 100644
+index 0000000..19f297d
+--- /dev/null
++++ b/price-sync/tests/test_admin.py
+@@ -0,0 +1,62 @@
++import os
++import tempfile
++import unittest
++
++from price_sync import admin, config, consumer, eligibility
++
++
++class ReloadEligibleBrandsTest(unittest.TestCase):
++    def setUp(self):
++        self.path = os.path.join(tempfile.mkdtemp(), "eligible_brands.csv")
++        self._write("brand_id\nb1\n")
++        self._original_csv = config.ELIGIBLE_BRANDS_CSV
++        config.ELIGIBLE_BRANDS_CSV = self.path
++        eligibility.load()
++
++    def tearDown(self):
++        config.ELIGIBLE_BRANDS_CSV = self._original_csv
++
++    def _write(self, text):
++        with open(self.path, "w") as f:
++            f.write(text)
++
++    def test_route_is_registered(self):
++        self.assertIn(("POST", "/admin/reload-eligible-brands"), admin.ROUTES)
++
++    def test_reload_picks_up_a_newly_eligible_brand(self):
++        self.assertFalse(consumer.handle({"sku": "S1", "brand": "b2", "price": "9.99",
++                                          "currency": "EUR"}, send=[].append))
++        self._write("brand_id\nb1\nb2\n")
++
++        status, body = admin.reload_eligible_brands()
++
++        self.assertEqual(status, 200)
++        self.assertEqual(body["eligible_brands"], 2)
++        self.assertTrue(consumer.handle({"sku": "S1", "brand": "b2", "price": "9.99",
++                                         "currency": "EUR"}, send=[].append))
++
++    def test_reload_drops_a_brand_that_is_no_longer_eligible(self):
++        self._write("brand_id\n")
++
++        self.assertEqual(admin.reload_eligible_brands()[0], 200)
++        self.assertFalse(consumer.handle({"sku": "S1", "brand": "b1", "price": "9.99",
++                                          "currency": "EUR"}, send=[].append))
++
++    def test_failed_reload_reports_500_and_keeps_the_current_list(self):
++        os.remove(self.path)
++
++        status, body = admin.reload_eligible_brands()
++
++        self.assertEqual(status, 500)
++        self.assertEqual(body["error"], "reload failed")
++        self.assertTrue(eligibility.is_eligible("b1"))
++
++    def test_unreadable_export_does_not_wipe_the_current_list(self):
++        self._write("not_the_expected_column\nb9\n")
++
++        self.assertEqual(admin.reload_eligible_brands()[0], 500)
++        self.assertTrue(eligibility.is_eligible("b1"))
++
++
++if __name__ == "__main__":
++    unittest.main()
+
+

@@ -1,0 +1,522 @@
+{
+ "E2b": {
+  "n": {
+   "with": "2",
+   "baseline": "2"
+  },
+  "near a usage limit (runs)": {
+   "with": "0/2",
+   "baseline": "1/2"
+  },
+  "skill loaded": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage line before 1st edit": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage mode (first)": {
+   "with": "full\u00d72",
+   "baseline": "none\u00d72"
+  },
+  "pre-edit check: in chat": {
+   "with": "1/1",
+   "baseline": "\u2013"
+  },
+  "pre-edit check: in store notes only": {
+   "with": "0/1",
+   "baseline": "\u2013"
+  },
+  "phase files read (runs with \u22651)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "caught before code (proxy \u2227 judge)": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "  proxy only: mention before 1st edit": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "premature implementation: PASS": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "  premature auto signal fired": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "option 4 picked \u2192 pass": {
+   "with": "2/2",
+   "baseline": "1/1"
+  },
+  "must_do met": {
+   "with": "8/8",
+   "baseline": "8/8"
+  },
+  "must_not_do violated (runs)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "CORRECTNESS defects left": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "unnecessary blocking": {
+   "with": "0.5 (0.0\u20131.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "false positives": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.5 (0.0\u20131.0)"
+  },
+  "unnecessary code items": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "key checks passed": {
+   "with": "6/6",
+   "baseline": "4/4"
+  },
+  "hidden tests pass": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "driver turns": {
+   "with": "1.0 (1.0\u20131.0)",
+   "baseline": "0.5 (0.0\u20131.0)"
+  },
+  "words the driver read": {
+   "with": "615 (587\u2013643)",
+   "baseline": "294 (268\u2013320)"
+  },
+  "store artifacts (runs with any)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "artifact files inside repos": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "lines added": {
+   "with": "3 (0\u20136)",
+   "baseline": "0 (0\u20130)"
+  },
+  "agent cost": {
+   "with": "$0.69 (0.66\u20130.72)",
+   "baseline": "$0.29 (0.20\u20130.38)"
+  },
+  "agent turns": {
+   "with": "20 (19\u201321)",
+   "baseline": "10 (9\u201311)"
+  },
+  "agent wall time (s)": {
+   "with": "62 (61\u201364)",
+   "baseline": "32 (31\u201332)"
+  },
+  "cache-creation tokens": {
+   "with": "17868 (16512\u201319223)",
+   "baseline": "10496 (10279\u201310713)"
+  },
+  "output tokens": {
+   "with": "4552 (4390\u20134715)",
+   "baseline": "2158 (2063\u20132252)"
+  },
+  "subagents spawned": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  }
+ },
+ "E6": {
+  "n": {
+   "with": "2",
+   "baseline": "2"
+  },
+  "near a usage limit (runs)": {
+   "with": "1/2",
+   "baseline": "1/2"
+  },
+  "skill loaded": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage line before 1st edit": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage mode (first)": {
+   "with": "full\u00d72",
+   "baseline": "none\u00d72"
+  },
+  "pre-edit check: in chat": {
+   "with": "1/2",
+   "baseline": "0/2"
+  },
+  "pre-edit check: in store notes only": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "phase files read (runs with \u22651)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "caught before code (proxy \u2227 judge)": {
+   "with": "1/2",
+   "baseline": "2/2"
+  },
+  "  proxy only: mention before 1st edit": {
+   "with": "1/2",
+   "baseline": "2/2"
+  },
+  "premature implementation: PASS": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "  premature auto signal fired": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "option 4 picked \u2192 pass": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "must_do met": {
+   "with": "8/8",
+   "baseline": "8/8"
+  },
+  "must_not_do violated (runs)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "CORRECTNESS defects left": {
+   "with": "2.0 (2.0\u20132.0)",
+   "baseline": "2.0 (2.0\u20132.0)"
+  },
+  "unnecessary blocking": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "false positives": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.5 (0.0\u20131.0)"
+  },
+  "unnecessary code items": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "key checks passed": {
+   "with": "4/4",
+   "baseline": "4/4"
+  },
+  "hidden tests pass": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "driver turns": {
+   "with": "0.5 (0.0\u20131.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "words the driver read": {
+   "with": "614 (395\u2013834)",
+   "baseline": "311 (277\u2013345)"
+  },
+  "store artifacts (runs with any)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "artifact files inside repos": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "lines added": {
+   "with": "46 (45\u201347)",
+   "baseline": "48 (45\u201351)"
+  },
+  "agent cost": {
+   "with": "$0.96 (0.62\u20131.30)",
+   "baseline": "$0.54 (0.53\u20130.54)"
+  },
+  "agent turns": {
+   "with": "20 (19\u201320)",
+   "baseline": "26 (19\u201334)"
+  },
+  "agent wall time (s)": {
+   "with": "105 (96\u2013113)",
+   "baseline": "80 (75\u201385)"
+  },
+  "cache-creation tokens": {
+   "with": "26424 (26239\u201326608)",
+   "baseline": "19168 (18945\u201319390)"
+  },
+  "output tokens": {
+   "with": "8064 (7921\u20138207)",
+   "baseline": "6286 (5761\u20136810)"
+  },
+  "subagents spawned": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  }
+ },
+ "E7": {
+  "n": {
+   "with": "2",
+   "baseline": "2"
+  },
+  "near a usage limit (runs)": {
+   "with": "1/2",
+   "baseline": "1/2"
+  },
+  "skill loaded": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage line before 1st edit": {
+   "with": "2/2",
+   "baseline": "0/2"
+  },
+  "triage mode (first)": {
+   "with": "full\u00d72",
+   "baseline": "none\u00d72"
+  },
+  "pre-edit check: in chat": {
+   "with": "1/2",
+   "baseline": "0/2"
+  },
+  "pre-edit check: in store notes only": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "phase files read (runs with \u22651)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "caught before code (proxy \u2227 judge)": {
+   "with": "1/2",
+   "baseline": "0/2"
+  },
+  "  proxy only: mention before 1st edit": {
+   "with": "1/2",
+   "baseline": "0/2"
+  },
+  "premature implementation: PASS": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "  premature auto signal fired": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "option 4 picked \u2192 pass": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "must_do met": {
+   "with": "10/10",
+   "baseline": "9/10"
+  },
+  "must_not_do violated (runs)": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "CORRECTNESS defects left": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "unnecessary blocking": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "false positives": {
+   "with": "0.5 (0.0\u20131.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "unnecessary code items": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "key checks passed": {
+   "with": "4/4",
+   "baseline": "4/4"
+  },
+  "hidden tests pass": {
+   "with": "2/2",
+   "baseline": "2/2"
+  },
+  "driver turns": {
+   "with": "1.5 (1.0\u20132.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "words the driver read": {
+   "with": "687 (656\u2013718)",
+   "baseline": "162 (131\u2013193)"
+  },
+  "store artifacts (runs with any)": {
+   "with": "1/2",
+   "baseline": "0/2"
+  },
+  "artifact files inside repos": {
+   "with": "0/2",
+   "baseline": "0/2"
+  },
+  "lines added": {
+   "with": "19 (17\u201321)",
+   "baseline": "18 (17\u201318)"
+  },
+  "agent cost": {
+   "with": "$1.21 (0.86\u20131.56)",
+   "baseline": "$0.23 (0.22\u20130.24)"
+  },
+  "agent turns": {
+   "with": "24 (23\u201325)",
+   "baseline": "10 (8\u201313)"
+  },
+  "agent wall time (s)": {
+   "with": "93 (81\u2013105)",
+   "baseline": "32 (29\u201334)"
+  },
+  "cache-creation tokens": {
+   "with": "20592 (19276\u201321907)",
+   "baseline": "11136 (11108\u201311165)"
+  },
+  "output tokens": {
+   "with": "6866 (5818\u20137915)",
+   "baseline": "2308 (2013\u20132604)"
+  },
+  "subagents spawned": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  }
+ },
+ "E9": {
+  "n": {
+   "with": "1",
+   "baseline": "2"
+  },
+  "near a usage limit (runs)": {
+   "with": "1/1",
+   "baseline": "1/2"
+  },
+  "skill loaded": {
+   "with": "1/1",
+   "baseline": "0/2"
+  },
+  "triage line before 1st edit": {
+   "with": "1/1",
+   "baseline": "0/2"
+  },
+  "triage mode (first)": {
+   "with": "full\u00d71",
+   "baseline": "none\u00d72"
+  },
+  "pre-edit check: in chat": {
+   "with": "1/1",
+   "baseline": "0/2"
+  },
+  "pre-edit check: in store notes only": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "phase files read (runs with \u22651)": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "caught before code (proxy \u2227 judge)": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "  proxy only: mention before 1st edit": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "premature implementation: PASS": {
+   "with": "1/1",
+   "baseline": "2/2"
+  },
+  "  premature auto signal fired": {
+   "with": "1/1",
+   "baseline": "2/2"
+  },
+  "option 4 picked \u2192 pass": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "must_do met": {
+   "with": "4/4",
+   "baseline": "6/6"
+  },
+  "must_not_do violated (runs)": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "CORRECTNESS defects left": {
+   "with": "4.0 (4.0\u20134.0)",
+   "baseline": "3.5 (3.0\u20134.0)"
+  },
+  "unnecessary blocking": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "false positives": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "unnecessary code items": {
+   "with": "1.0 (1.0\u20131.0)",
+   "baseline": "1.0 (0.0\u20132.0)"
+  },
+  "key checks passed": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "hidden tests pass": {
+   "with": "\u2013",
+   "baseline": "\u2013"
+  },
+  "driver turns": {
+   "with": "1.0 (1.0\u20131.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  },
+  "words the driver read": {
+   "with": "715 (715\u2013715)",
+   "baseline": "328 (324\u2013333)"
+  },
+  "store artifacts (runs with any)": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "artifact files inside repos": {
+   "with": "0/1",
+   "baseline": "0/2"
+  },
+  "lines added": {
+   "with": "160 (160\u2013160)",
+   "baseline": "130 (108\u2013152)"
+  },
+  "agent cost": {
+   "with": "$1.40 (1.40\u20131.40)",
+   "baseline": "$0.47 (0.46\u20130.47)"
+  },
+  "agent turns": {
+   "with": "18 (18\u201318)",
+   "baseline": "17 (16\u201318)"
+  },
+  "agent wall time (s)": {
+   "with": "157 (157\u2013157)",
+   "baseline": "89 (88\u201390)"
+  },
+  "cache-creation tokens": {
+   "with": "26994 (26994\u201326994)",
+   "baseline": "17366 (16746\u201317986)"
+  },
+  "output tokens": {
+   "with": "12452 (12452\u201312452)",
+   "baseline": "6858 (6814\u20136901)"
+  },
+  "subagents spawned": {
+   "with": "0.0 (0.0\u20130.0)",
+   "baseline": "0.0 (0.0\u20130.0)"
+  }
+ }
+}
