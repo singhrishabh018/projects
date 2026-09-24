@@ -116,6 +116,14 @@ def write(batch_dir):
         out += ["", f"## {case_id}", "", "| metric | " + " | ".join(cols) + " |",
                 "|---|" + "---|" * len(cols)]
         summary[case_id] = {}
+        # cost multiple next to the outcome rows, not buried in a footnote
+        if "with" in cols and "baseline" in cols:
+            wc = [r["metrics"]["agent_cost_usd"] for r in arms["with"]]
+            bc = [r["metrics"]["agent_cost_usd"] for r in arms["baseline"]]
+            if wc and bc and statistics.mean(bc) > 0:
+                mult = statistics.mean(wc) / statistics.mean(bc)
+                out.append(f"| **cost multiple (with ÷ baseline)** | **{mult:.1f}×** |  |")
+                summary[case_id]["cost_multiple"] = round(mult, 2)
         for label, fn in rows:
             vals = [fn(arms[a]) for a in cols]
             out.append(f"| {label} | " + " | ".join(vals) + " |")
@@ -151,6 +159,39 @@ def write(batch_dir):
                    f"${m['agent_cost_usd']:.2f} | {m['agent_turns']} | {m['driver_turns']} | {caught} | "
                    f"{(r.get('final') or {}).get('premature_implementation') or '–'} | "
                    f"{' → '.join(m['skill_files_order']) or '–'} |")
+
+    # proxy fix (2026-09-24): show old vs new caught-before-code side by side wherever a run
+    # was retroactively recomputed (gw_eval.py recompute-facts), never silently.
+    fixed = [r for r in runs_ok if "facts_pre_2026-09-24_proxy_fix" in r["metrics"]]
+    if fixed:
+        out += ["", "## Proxy fix (2026-09-24): caught-before-code, old vs new", "",
+                "The automatic \"mentioned before the first edit\" check originally scanned only chat "
+                "text and store notes, and treated the first edit's own index as \"not before\". It "
+                "missed facts the agent stated only inside the first edit's own code/docstring. Fixed "
+                "to scan that content too and treat the first edit's own index as \"at or before\". "
+                "These runs were rescored from the saved transcript — no new agent or judge calls.", "",
+                "| case | run | fact | old: mentioned before edit | new: mentioned before edit | "
+                "judge: design accounts for it | old: caught before code | new: caught before code |",
+                "|---|---|---|---|---|---|---|---|"]
+        for r in sorted(fixed, key=lambda r: (r["case"], r["arm"], r["index"])):
+            old_facts = r["metrics"]["facts_pre_2026-09-24_proxy_fix"]
+            new_facts = r["metrics"]["facts"]
+            old_final = (r.get("final") or {}).get("facts_pre_2026-09-24_proxy_fix") or {}
+            new_final = (r.get("final") or {}).get("facts") or {}
+            for fid in sorted(new_facts):
+                of, nf = old_facts.get(fid, {}), new_facts[fid]
+                out.append(f"| {r['case']} | {r['arm']}-{r['index']} | {fid} | "
+                           f"{of.get('mention_before_first_edit')} | {nf.get('mention_before_first_edit')} | "
+                           f"{new_final.get(fid, {}).get('judge_design_accounts')} | "
+                           f"{old_final.get(fid, {}).get('caught_before_code')} | "
+                           f"{new_final.get(fid, {}).get('caught_before_code')} |")
+        old_n = sum(v.get("caught_before_code") for r in fixed
+                   for v in ((r.get("final") or {}).get("facts_pre_2026-09-24_proxy_fix") or {}).values())
+        new_n = sum(v.get("caught_before_code") for r in fixed
+                   for v in ((r.get("final") or {}).get("facts") or {}).values())
+        tot = sum(len((r.get("final") or {}).get("facts") or {}) for r in fixed)
+        out += ["", f"Across {len(fixed)} rescored runs: **{old_n}/{tot} → {new_n}/{tot}** facts now "
+               "counted as caught before code."]
 
     # cross-case file-read table
     withs = [r for r in runs_ok if r["arm"] == "with"]

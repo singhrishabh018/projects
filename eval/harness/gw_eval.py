@@ -11,6 +11,7 @@ See eval/README.md.
 import argparse
 import concurrent.futures as cf
 import datetime
+import fnmatch
 import gzip
 import json
 import os
@@ -548,7 +549,11 @@ def _warmup(arm, args):
 
 
 def _git_head(path):
-    p = subprocess.run(["git", "-C", path, "rev-parse", "--short", "HEAD"], capture_output=True, text=True)
+    """The commit that last touched `path`'s content — not the whole repo's HEAD, which moves
+    on every unrelated commit (results, harness code) and would make --resume-batch's
+    skill-change guard fire on runs where the skill itself never changed."""
+    p = subprocess.run(["git", "-C", path, "log", "-1", "--format=%h", "--", "."],
+                       capture_output=True, text=True)
     dirty = subprocess.run(["git", "-C", path, "status", "--porcelain", "--", "."],
                            capture_output=True, text=True).stdout.strip()
     return (p.stdout.strip() or "unknown") + ("+dirty" if dirty else "")
@@ -563,6 +568,99 @@ def _claude_version(claude_bin):
 
 
 # --------------------------------------------------------------------------- rescore
+def cmd_recompute_facts(args):
+    """Retroactively re-score already-run transcripts with a fixed automatic metric. No agent
+    or judge calls — pure local recomputation from the saved timeline. Old values are kept
+    under metrics["facts_pre_2026-09-24_proxy_fix"] / final["facts_pre_2026-09-24_proxy_fix"]
+    so the report can show both."""
+    batch_dir = os.path.abspath(args.results_dir)
+    meta = json.load(open(os.path.join(batch_dir, "batch.json")))
+    cs = {c.id: c for c in cases_mod.load_all(args.cases_dir or meta["cases_dir"])}
+    changed = []
+    for case_id in sorted(os.listdir(batch_dir)):
+        cdir = os.path.join(batch_dir, case_id)
+        if not os.path.isdir(cdir) or case_id not in cs:
+            continue
+        key = cs[case_id].key
+        for rd in sorted(os.listdir(cdir)):
+            rpath = os.path.join(cdir, rd, "run.json")
+            tpath = os.path.join(cdir, rd, "timeline.json.gz")
+            if not os.path.exists(rpath) or not os.path.exists(tpath):
+                continue
+            run = json.load(open(rpath))
+            if run.get("aborted"):
+                continue
+            with gzip.open(tpath, "rt") as f:
+                tl = json.load(f)
+            m = run["metrics"]
+            if "facts_pre_2026-09-24_proxy_fix" in m:
+                continue  # already recomputed; recompute is idempotent by design, skip re-doing it
+            edits = []
+            for e in tl:
+                if e["kind"] == "tool_use":
+                    t = metrics.edit_target(e, run["ws_dir"], run["gw_home"])
+                    if t:
+                        edits.append(dict(i=e["i"], inv=e["inv"], who=e["who"], tool=e["name"],
+                                          target=t[0], path=t[1], content=t[2]))
+            old_facts = m.get("facts") or {}
+            new_facts = metrics.compute_facts(tl, edits, m.get("first_code_edit_index"), key)
+            if new_facts == old_facts:
+                continue
+            m["facts_pre_2026-09-24_proxy_fix"] = old_facts
+            m["facts"] = new_facts
+            # premature_edits_signal shares the same first_mention_index; recompute it too so
+            # the two stay consistent (the fix broadens what counts as "surfaced"). Mirrors the
+            # block in metrics.compute() exactly, with new_facts in place of facts.
+            code_edits = [x for x in edits if x["target"] == "ws"]
+            results = [e for e in tl if e["kind"] == "result"]
+            final_by_inv = {e["inv"]: e["text"] for e in results}
+            prem = []
+            for u in key.get("unknowns") or []:
+                qrx = re.compile(u["question_regex"], re.I | re.M) if u.get("question_regex") else None
+                fact_idx = [new_facts[f]["first_mention_index"] for f in u.get("facts") or [] if f in new_facts]
+                for x in code_edits:
+                    for dc in u.get("dependent_code") or []:
+                        path_ok = (x["path"] is None or fnmatch.fnmatch(x["path"], dc["path"]))
+                        if not (path_ok and x["content"] and re.search(dc["pattern"], x["content"], re.I | re.M)):
+                            continue
+                        if x["path"] is None and dc["path"].split("/")[0] not in x["content"]:
+                            continue
+                        final = final_by_inv.get(x["inv"], "")
+                        asked_after = driver_mod.asks_question(final) and (qrx is None or bool(qrx.search(final)))
+                        before_fact = bool(fact_idx) and all(fi is None or fi > x["i"] for fi in fact_idx)
+                        prem.append(dict(unknown=u["id"], edit_index=x["i"], path=x["path"],
+                                         invocation=x["inv"], before_fact_mention=before_fact,
+                                         same_turn_ends_asking=asked_after,
+                                         signal=before_fact or asked_after))
+                        break
+            if m.get("premature_edits_signal") is not None:
+                m["premature_edits_signal_pre_2026-09-24_proxy_fix"] = m["premature_edits_signal"]
+            if m.get("premature_signal") is not None:
+                m["premature_signal_pre_2026-09-24_proxy_fix"] = m["premature_signal"]
+            m["premature_edits_signal"] = prem
+            m["premature_signal"] = any(p["signal"] for p in prem)
+            if run.get("final"):
+                old_final_facts = run["final"].get("facts")
+                jf = {f["id"]: f for f in ((run.get("judge") or {}).get("verdict") or {}).get("facts") or []}
+                new_final_facts = {}
+                for fid, auto in new_facts.items():
+                    j = jf.get(fid) or {}
+                    new_final_facts[fid] = {
+                        "proxy_mention_before_edit": auto["mention_before_first_edit"],
+                        "judge_design_accounts": j.get("design_accounts_for_it"),
+                        "caught_before_code": bool(auto["mention_before_first_edit"] and j.get("design_accounts_for_it")),
+                    }
+                run["final"]["facts_pre_2026-09-24_proxy_fix"] = old_final_facts
+                run["final"]["facts"] = new_final_facts
+            _write_json(rpath, run)
+            changed.append(f"{case_id}/{rd}")
+            log(f"recomputed facts: {case_id}/{rd}")
+    log(f"{len(changed)} runs changed: {changed}")
+    import report
+    report.write(batch_dir)
+    return 0
+
+
 def cmd_rescore(args):
     batch_dir = os.path.abspath(args.results_dir)
     meta = json.load(open(os.path.join(batch_dir, "batch.json")))
@@ -645,6 +743,12 @@ def main(argv=None):
     s.add_argument("--judge-model", default="claude-opus-5")
     s.add_argument("--claude-bin", default=os.environ.get("GW_EVAL_CLAUDE", "claude"))
 
+    rf = sub.add_parser("recompute-facts",
+                        help="retroactively re-score saved transcripts with a fixed automatic "
+                             "metric; no agent or judge calls, pure local recomputation")
+    rf.add_argument("results_dir")
+    rf.add_argument("--cases-dir")
+
     p = sub.add_parser("report")
     p.add_argument("results_dir")
 
@@ -654,6 +758,7 @@ def main(argv=None):
     if getattr(args, "skill_dir", None):
         args.skill_dir = os.path.abspath(args.skill_dir)
     return {"validate": cmd_validate, "run": cmd_run, "rescore": cmd_rescore,
+            "recompute-facts": cmd_recompute_facts,
             "report": cmd_report}[args.cmd](args)
 
 

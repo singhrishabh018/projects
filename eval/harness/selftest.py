@@ -22,6 +22,8 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GW = os.path.join(HERE, "gw_eval.py")
+sys.path.insert(0, HERE)
+import metrics  # noqa: E402 -- unit tests for the fact-mention proxy fix
 
 STUB = r'''#!/usr/bin/env python3
 import json, os, sys
@@ -156,9 +158,54 @@ def check(cond, msg):
     return bool(cond)
 
 
+def test_fact_proxy_fix():
+    """Unit tests for metrics.compute_facts (2026-09-24 fix): a fact stated only inside the
+    first edit's own code/docstring must count as caught at-or-before that edit, not missed."""
+    key = {"facts": [{"id": "F1", "mention_regex": "MAGIC_FACT"}]}
+    results = []
+
+    # Fact in chat text before the edit: unaffected by the fix, still True.
+    tl = [dict(i=0, kind="text", who="main", text="MAGIC_FACT matters here."),
+          dict(i=1, kind="tool_use", name="Edit")]
+    edits = [dict(i=1, target="ws", content="no mention here")]
+    f = metrics.compute_facts(tl, edits, first_edit=1, key=key)
+    results.append(check(f["F1"]["mention_before_first_edit"] is True,
+                         "fact in chat before the edit still counts (regression check)"))
+
+    # Fact stated only inside the first edit's own docstring/content: now counts (same index).
+    tl = [dict(i=0, kind="text", who="main", text="Now implementing."),
+          dict(i=1, kind="tool_use", name="Write")]
+    edits = [dict(i=1, target="ws", content='"""Uses eligible_brands: MAGIC_FACT."""' + chr(10) + 'code()')]
+    f = metrics.compute_facts(tl, edits, first_edit=1, key=key)
+    results.append(check(f["F1"]["mention_before_first_edit"] is True,
+                         "fact stated inside the first edit's own content now counts (the fix)"))
+    with_old_semantics = f["F1"]["first_mention_index"] < f["F1"]["first_mention_index"] + 1  # sanity
+    del with_old_semantics
+
+    # Fact stated only inside a LATER edit: still does not count as before the first edit.
+    tl = [dict(i=0, kind="text", who="main", text="Now implementing."),
+          dict(i=1, kind="tool_use", name="Write"), dict(i=3, kind="tool_use", name="Write")]
+    edits = [dict(i=1, target="ws", content="no mention"),
+             dict(i=3, target="ws", content="MAGIC_FACT explained only now, after the fact")]
+    f = metrics.compute_facts(tl, edits, first_edit=1, key=key)
+    results.append(check(f["F1"]["mention_before_first_edit"] is False
+                         and f["F1"]["mentioned"] is True,
+                         "fact stated only in a later edit is still not 'before' (unchanged)"))
+
+    # Fact never stated anywhere: unaffected.
+    tl = [dict(i=0, kind="text", who="main", text="Nothing relevant."),
+          dict(i=1, kind="tool_use", name="Write")]
+    edits = [dict(i=1, target="ws", content="irrelevant code")]
+    f = metrics.compute_facts(tl, edits, first_edit=1, key=key)
+    results.append(check(f["F1"]["mentioned"] is False, "fact never stated: not mentioned (regression check)"))
+
+    return results
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="gw-selftest-")
     results = []
+    results += test_fact_proxy_fix()
     try:
         cases_dir = os.path.join(tmp, "external-cases")
         make_dummy_cases(cases_dir)

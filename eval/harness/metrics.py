@@ -151,6 +151,32 @@ def skill_file_events(tl):
     return out
 
 
+def compute_facts(tl, edits, first_edit, key):
+    """Per planted fact: where it was first surfaced, and whether that was at-or-before the
+    first code edit. "Surfaced" is anything the agent produced that a reviewer could read:
+    chat text, store notes, and content it wrote into the workspace (code, comments,
+    docstrings) — a fact stated only inside the first edit's own docstring still counts as
+    stated there, not silently baked in with no record. Compared "<=" the first edit's index,
+    not "<": the same tool call that writes the code and the comment explaining it is
+    contemporaneous, not a later, separate explanation — and not proof the code was written
+    first either. This was a proxy bug (v1 scanned chat/store text only, and used strict "<"),
+    fixed 2026-09-24 after it under-counted judge-confirmed catches in the Stage 1 batch.
+    """
+    surfaced = [(e["i"], e["text"]) for e in tl if e["kind"] == "text" and e["who"] == "main"]
+    surfaced += [(x["i"], x["content"]) for x in edits if x["target"] in ("store", "ws") and x["content"]]
+    surfaced.sort()
+    facts = {}
+    for f in key.get("facts") or []:
+        rx = re.compile(f["mention_regex"], re.IGNORECASE | re.MULTILINE)
+        first = next((i for i, text in surfaced if text and rx.search(text)), None)
+        facts[f["id"]] = {
+            "first_mention_index": first,
+            "mentioned": first is not None,
+            "mention_before_first_edit": first is not None and (first_edit is None or first <= first_edit),
+        }
+    return facts
+
+
 # --------------------------------------------------------------------------- metrics
 def compute(ctx):
     """ctx keys: timeline, init, arm, ws_dir, gw_home, key, diffs, store_files,
@@ -207,18 +233,7 @@ def compute(ctx):
     m["pre_edit_check_signal"] = m["pre_edit_check_in_chat"] or m["pre_edit_check_in_store"]
 
     # --- fact mentions: first-edit vs first-mention (named proxy for "caught before code")
-    surfaced = [(e["i"], e["text"]) for e in tl if e["kind"] == "text" and e["who"] == "main"]
-    surfaced += [(x["i"], x["content"]) for x in edits if x["target"] == "store"]
-    surfaced.sort()
-    facts = {}
-    for f in key.get("facts") or []:
-        rx = re.compile(f["mention_regex"], re.IGNORECASE | re.MULTILINE)
-        first = next((i for i, text in surfaced if text and rx.search(text)), None)
-        facts[f["id"]] = {
-            "first_mention_index": first,
-            "mentioned": first is not None,
-            "mention_before_first_edit": first is not None and (first_edit is None or first < first_edit),
-        }
+    facts = compute_facts(tl, edits, first_edit, key)
     m["facts"] = facts
 
     # --- premature implementation signal (addition b)
