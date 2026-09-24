@@ -11,8 +11,10 @@ Status: **v0.1 in progress** (spec v0.3). Private use.
 
 ```
 skill/groundwork/        ← the installable skill folder
-  SKILL.md               triage, guard rules G1–G8, how to ask the user, full-mode router
-  phases/                C1–C9, C11, C14: one file per build-flow phase, read on demand
+  SKILL.md               triage, guard G1–G8, evidence/proxies, asking the user, design &
+                         review discipline, connectors, handoff, full-mode router
+  phases/                C3, C4, C6–C9, C14: depth/worked versions of what SKILL.md already
+                         states; measured 0 reads in 15 full-mode runs (see docs/M3-*)
   probes/                common checklist + deploy topology + external API
   templates/             requirements, decisions, questions, gate record, verification, handoff
 eval/                    evaluation harness, synthetic workspace, visible cases (see eval/README.md)
@@ -77,9 +79,9 @@ For any task that changes code or asks how a system works, load the `groundwork`
 1. Skill loads from the global location: it appears in Customize → Skills.
 2. Guard rules appear: on a small edit, the first line of the reply is
    `Groundwork: guard — …`.
-3. A phase file loads on heavy work: on a cross-repo change, the reply starts
-   `Groundwork: full — …` and the agent reads
-   `phases/c1-triage.md`.
+3. On a cross-repo change, the reply starts `Groundwork: full — …`. Measured evidence
+   (`docs/M3-*.md`) says a phase file is unlikely to be read after that — the load-bearing
+   rules now live in SKILL.md itself.
 
 ## Modes
 

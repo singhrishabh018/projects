@@ -427,11 +427,11 @@
    "baseline": "0/2"
   },
   "caught before code (proxy \u2227 judge)": {
-   "with": "1/2",
+   "with": "2/2",
    "baseline": "0/2"
   },
   "  proxy only: mention before 1st edit": {
-   "with": "1/2",
+   "with": "2/2",
    "baseline": "0/2"
   },
   "premature implementation: PASS": {

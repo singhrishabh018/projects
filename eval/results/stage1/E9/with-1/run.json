@@ -48,9 +48,9 @@
   "pre_edit_check_signal": true,
   "facts": {
    "F1": {
-    "first_mention_index": 24,
+    "first_mention_index": 14,
     "mentioned": true,
-    "mention_before_first_edit": false
+    "mention_before_first_edit": true
    },
    "F2": {
     "first_mention_index": 15,
@@ -91,7 +91,7 @@
     "edit_index": 15,
     "path": "price-sync/price_sync/eligibility.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": true,
     "signal": true
    },
@@ -100,7 +100,7 @@
     "edit_index": 17,
     "path": "price-sync/price_sync/admin.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": true,
     "signal": true
    },
@@ -173,14 +173,14 @@
   "driver_cost_usd": 0.0314,
   "facts_pre_2026-09-24_proxy_fix": {
    "F1": {
-    "first_mention_index": 28,
+    "first_mention_index": 24,
     "mentioned": true,
     "mention_before_first_edit": false
    },
    "F2": {
-    "first_mention_index": 28,
+    "first_mention_index": 15,
     "mentioned": true,
-    "mention_before_first_edit": false
+    "mention_before_first_edit": true
    }
   },
   "premature_edits_signal_pre_2026-09-24_proxy_fix": [
@@ -189,7 +189,7 @@
     "edit_index": 15,
     "path": "price-sync/price_sync/eligibility.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": true,
     "signal": true
    },
@@ -198,7 +198,7 @@
     "edit_index": 17,
     "path": "price-sync/price_sync/admin.py",
     "invocation": 0,
-    "before_fact_mention": true,
+    "before_fact_mention": false,
     "same_turn_ends_asking": true,
     "signal": true
    },
@@ -432,9 +432,9 @@
  "final": {
   "facts": {
    "F1": {
-    "proxy_mention_before_edit": false,
+    "proxy_mention_before_edit": true,
     "judge_design_accounts": true,
-    "caught_before_code": false
+    "caught_before_code": true
    },
    "F2": {
     "proxy_mention_before_edit": true,
@@ -458,9 +458,9 @@
     "caught_before_code": false
    },
    "F2": {
-    "proxy_mention_before_edit": false,
+    "proxy_mention_before_edit": true,
     "judge_design_accounts": true,
-    "caught_before_code": false
+    "caught_before_code": true
    }
   }
  }

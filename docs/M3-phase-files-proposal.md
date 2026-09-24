@@ -127,3 +127,45 @@ to promote it into SKILL.md too, one line at a time, the same way this fix promo
 pre-edit check.
 
 **Not implemented.** This is the proposal only, per the instruction to stop before Stage 2.
+
+---
+
+## Implemented (2026-09-24)
+
+Option A, as recommended. `phases/c1-triage.md`, `c2-requirements.md`, `c5-decisions.md`,
+`c11-handoff.md` deleted; their unique content (failure-model/volume-math triage rule,
+recency-is-a-suggestion, never-narrow-scope, the owner/evidence decision rule, the
+reconciliation discipline) folded into SKILL.md. `c3-discovery.md`, `c4-research.md`,
+`c6-design-review.md`, `c7-questions.md`, `c8-plan.md`, `c9-verify.md`, `c14-connectors.md`
+kept, and their load-bearing content (claim format, proxy technique, neutral-question and
+disconfirming-search technique, the two-check review + budgets, the question routing table +
+draft-only rule, the anti-speculative-extras rule + decision-closing wording, the
+verification checklist + hypothesis mode, the connector roles table) is now **also** in
+SKILL.md, in compressed form — the phase files hold the depth and worked examples.
+
+**Size.** SKILL.md: 118 → **210 lines**, 6,722 → **12,618 characters**. Token estimate,
+scaled from M2's own measured ratio for the old file (2,270 tokens / 6,722 chars, the only
+real tokenizer measurement available) rather than a generic per-token heuristic: **≈ 4.0–4.3k
+tokens** (line-count scaling gives 4.04k, character scaling gives 4.26k). This is higher than
+the proposal's rough +35–40-line estimate — actual net addition was ≈ 92 lines, because
+writing each merged section legibly (not just as a bullet fragment) took more room than the
+original per-item estimate assumed. It stays under the 5k compaction-keep line, but with less
+margin than Option A's original 2.9–3.0k estimate suggested. Not independently verified
+against the real tokenizer (no API call was spent just to count tokens); if this matters,
+measure it directly before relying on the margin.
+
+**Explicit note, as instructed:** `c3-discovery.md`, `c4-research.md`, `c6-design-review.md`,
+`c7-questions.md`, `c8-plan.md`, `c9-verify.md` and `c14-connectors.md` are **kept on content
+uniqueness, not on any evidence that an agent opens them** — measured read rate is 0/15
+full-mode runs (M2: 7, E1 smoke: 1, M3 Stage 1: 7). SKILL.md itself now says this in the
+"Full mode" section. **The next measurement must test whether they load at all** — the same
+question that was already answered once for SKILL.md's own description (M1: 0/2 → 4/4 loads
+after a directive wording change). If they still don't load after a real task exercises them,
+the honest conclusion is that a plain-files skill cannot make a human reliably open a
+second-tier file just because SKILL.md names it, and the remaining detail (worked examples,
+hypothesis mode, the full connector-role table) should be judged on whether losing it matters
+in practice, not preserved on the assumption that "someone might read the file."
+
+**Not done:** no run has exercised the new SKILL.md yet. The pre-edit check, the design/
+review discipline section and the shortened question-routing text are all unverified in
+practice — same caveat M2 gave the original pre-edit check.

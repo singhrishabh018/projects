@@ -144,8 +144,8 @@ Skill files read, with arm (runs that read each file, of 2): `SKILL.md` 2
 | pre-edit check: in chat | 1/2 | 0/2 |
 | pre-edit check: in store notes only | 0/2 | 0/2 |
 | phase files read (runs with ≥1) | 0/2 | 0/2 |
-| caught before code (proxy ∧ judge) | 1/2 | 0/2 |
-|   proxy only: mention before 1st edit | 1/2 | 0/2 |
+| caught before code (proxy ∧ judge) | 2/2 | 0/2 |
+|   proxy only: mention before 1st edit | 2/2 | 0/2 |
 | premature implementation: PASS | 2/2 | 2/2 |
 |   premature auto signal fired | 2/2 | 2/2 |
 | option 4 picked → pass | – | – |
@@ -193,7 +193,7 @@ Near limit = a non-`allowed` rate-limit status, a limit/throttle message, a retr
 | E7 | with-2 | **yes** (allowed_warning) | five_hour 0.90, seven_day 0.17 | $1.56 | 25 | 2 | 2/2 | pass | SKILL.md |
 | E9 | baseline-1 | no | five_hour 0.78, seven_day 0.16 | $0.46 | 16 | 0 | 1/2 | pass | – |
 | E9 | baseline-2 | **yes** (allowed_warning) | five_hour 0.99, seven_day 0.18 | $0.47 | 18 | 0 | 1/2 | pass | – |
-| E9 | with-1 | **yes** | five_hour 0.80, seven_day 0.16 | $1.40 | 18 | 1 | 1/2 | pass | SKILL.md |
+| E9 | with-1 | **yes** | five_hour 0.80, seven_day 0.16 | $1.40 | 18 | 1 | 2/2 | pass | SKILL.md |
 | E9 | with-2 | no | five_hour 0.36, seven_day 0.21 | $1.53 | 30 | 1 | 2/2 | pass | SKILL.md |
 
 ## Proxy fix (2026-09-24): caught-before-code, old vs new
@@ -210,14 +210,10 @@ The automatic "mentioned before the first edit" check originally scanned only ch
 | E7 | baseline-2 | F2 | False | True | True | False | True |
 | E7 | with-1 | F1 | False | True | True | False | True |
 | E7 | with-1 | F2 | True | True | True | True | True |
-| E9 | baseline-1 | F1 | False | False | True | False | False |
-| E9 | baseline-1 | F2 | False | True | True | False | True |
-| E9 | baseline-2 | F1 | False | False | True | False | False |
-| E9 | baseline-2 | F2 | False | True | True | False | True |
-| E9 | with-1 | F1 | False | False | True | False | False |
-| E9 | with-1 | F2 | False | True | True | False | True |
+| E9 | with-1 | F1 | False | True | True | False | True |
+| E9 | with-1 | F2 | True | True | True | True | True |
 
-Across 7 rescored runs: **1/14 → 9/14** facts now counted as caught before code.
+Across 5 rescored runs: **2/10 → 8/10** facts now counted as caught before code.
 
 ## Skill files read across all cases (with arm)
 

@@ -9,7 +9,7 @@ hidden_conditions:
 facts:
   - id: F1
     description: 4 replicas behind a load-balanced Service; reload hits one pod
-    mention_regex: '\b4\s*(pods|replicas|instances)|replicas:\s*4|four (pods|replicas|instances)|(one|a single|only one) (pod|replica|instance)|each (pod|replica|instance)'
+    mention_regex: '\b4\s*(\w+\s+){0,2}(pods|replicas|instances)|replicas:\s*4|four (\w+\s+){0,2}(pods|replicas|instances)|(one|a single|only one) (\w+\s+){0,2}(pod|replica|instance)|each (\w+\s+){0,2}(pod|replica|instance)'
   - id: F2
     description: the export regenerates only nightly at 02:00 UTC
     mention_regex: '02:00|2 ?am|nightly|once a day|daily'

@@ -1,6 +1,6 @@
 # Requirements — <task>
 
-<!-- Triage block from C1 goes here -->
+<!-- Triage block goes here (mode, phases, conditional sections — see SKILL.md "Triage first") -->
 
 ## Sources
 | id | kind | key / URL | author | last updated | retrieved |
